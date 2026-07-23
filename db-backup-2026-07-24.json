@@ -1,0 +1,1079 @@
+{
+  "exportedAt": "2026-07-23T18:00:12.066Z",
+  "source": "https://csgo2.doxanh.dev",
+  "note": "IP addresses in changelog entries are redacted (this repo is public). Player photo binary data is intentionally excluded — see each player's hasPhoto flag; fetch via /api/players/:id/photo if a real restore ever needs it.",
+  "players": [
+    {
+      "id": "quang",
+      "name": "Quang",
+      "score": 100,
+      "role": "flex",
+      "tagLevels": {
+        "aim": 5,
+        "rifle": 5,
+        "awp": 5,
+        "map": 5,
+        "tactics": 5,
+        "game-sense": 5,
+        "multikill": 5,
+        "clutch": 5,
+        "ace-machine": 5
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T14:11:07.712Z"
+    },
+    {
+      "id": "trunk",
+      "name": "Trunk",
+      "score": 85,
+      "role": "rifler",
+      "tagLevels": {
+        "aim": 5,
+        "rifle": 5,
+        "awp": 4,
+        "multikill": 4,
+        "game-sense": 3,
+        "human-aimbot": 4
+      },
+      "hasPhoto": true,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T16:13:30.780Z"
+    },
+    {
+      "id": "colia",
+      "name": "Colia",
+      "score": 83,
+      "role": "awper",
+      "tagLevels": {
+        "aim": 5,
+        "rifle": 4,
+        "awp": 4,
+        "game-sense": 4
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "foyu",
+      "name": "Foyu",
+      "score": 81,
+      "role": "igl",
+      "tagLevels": {
+        "rifle": 5,
+        "utility": 4,
+        "tactics": 5,
+        "setup": 5,
+        "defense": 5,
+        "teamwork": 4,
+        "clutch": 5,
+        "game-sense": 3,
+        "clutch-king": 5,
+        "smoke-lineups": 5,
+        "flash-assist": 4
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T14:21:15.986Z"
+    },
+    {
+      "id": "bach-khoi",
+      "name": "Bạch Khởi",
+      "score": 70,
+      "role": "awper",
+      "tagLevels": {
+        "awp": 5,
+        "attack": 4,
+        "utility": 4,
+        "tactics": 4,
+        "setup": 4
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T15:37:01.527Z"
+    },
+    {
+      "id": "kill",
+      "name": "KILL",
+      "score": 76,
+      "role": "rifler",
+      "tagLevels": {
+        "aim": 2,
+        "rifle": 4,
+        "aug": 4,
+        "utility": 3,
+        "tactics": 3,
+        "game-sense": 4,
+        "7534bf6b-d006-42c9-9a17-fda4dbe116d6": 5
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T16:48:35.363Z"
+    },
+    {
+      "id": "ksir",
+      "name": "Ksir",
+      "score": 68,
+      "role": "rifler",
+      "tagLevels": {
+        "rifle": 4,
+        "aug": 4,
+        "attack": 3,
+        "lowUtility": 3,
+        "game-sense": 3
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "danking",
+      "name": "DanKing",
+      "score": 67,
+      "role": "rifler",
+      "tagLevels": {
+        "aim": 3,
+        "rifle": 3,
+        "utility": 3,
+        "tactics": 3,
+        "mentalRisk": 4,
+        "b137f39e-455e-4630-985b-7cb01f181447": 4
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T15:38:39.328Z"
+    },
+    {
+      "id": "ladygaga",
+      "name": "Ladygaga",
+      "score": 48,
+      "role": "rifler",
+      "tagLevels": {
+        "rifle": 3,
+        "aug": 3,
+        "sacrifice": 3
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T15:33:44.712Z"
+    },
+    {
+      "id": "longkhatmau",
+      "name": "longkhatmau",
+      "score": 66,
+      "role": "awper",
+      "tagLevels": {
+        "awp": 5,
+        "inconsistent": 2,
+        "lowUtility": 4,
+        "disciplineRisk": 1,
+        "toxic-comms": 2,
+        "rifle": 3,
+        "433cc8cb-8fa2-4277-9ede-349f7d0a1c09": 4
+      },
+      "hasPhoto": true,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T16:28:34.853Z"
+    },
+    {
+      "id": "binh-gold",
+      "name": "Bình Gold",
+      "score": 64,
+      "role": "support",
+      "tagLevels": {
+        "utility": 4,
+        "tactics": 4,
+        "setup": 4,
+        "inconsistent": 3,
+        "rifle": 4
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T14:23:23.351Z"
+    },
+    {
+      "id": "den",
+      "name": "Đen",
+      "score": 58,
+      "role": "rifler",
+      "tagLevels": {
+        "rifle": 3,
+        "teamFlash": 5,
+        "inconsistent": 2,
+        "lowUtility": 5
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "hungkhatmau",
+      "name": "hungkhatmau",
+      "score": 50,
+      "role": "support",
+      "tagLevels": {
+        "smg": 4,
+        "sacrifice": 4,
+        "listen": 4,
+        "boost-buddy": 3
+      },
+      "hasPhoto": true,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T15:46:10.403Z"
+    },
+    {
+      "id": "tainm",
+      "name": "TaiNM",
+      "score": 35,
+      "role": "entry",
+      "tagLevels": {
+        "pc": 5,
+        "disciplineRisk": 5,
+        "lowTeamwork": 4,
+        "a44667bf-da45-45c6-9d2e-c13b0eb52abe": 5
+      },
+      "hasPhoto": true,
+      "createdAt": "2026-07-23T11:01:59.469Z",
+      "updatedAt": "2026-07-23T16:44:51.848Z"
+    },
+    {
+      "id": "993ba217-5ce5-453f-8b54-1f49509229a6",
+      "name": "Tofu",
+      "score": 55,
+      "role": "rifler",
+      "tagLevels": {
+        "aim": 3,
+        "83b9fa5f-3744-4657-84de-e17247af1442": 4,
+        "toxic-comms": 5
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T15:32:13.050Z",
+      "updatedAt": "2026-07-23T15:54:54.758Z"
+    },
+    {
+      "id": "caa67a26-0281-4083-b0b5-3f7dc7350d48",
+      "name": "Zon",
+      "score": 69,
+      "role": "rifler",
+      "tagLevels": {
+        "aim": 4,
+        "setup": 3,
+        "map": 4,
+        "382ecf04-a94e-4d7f-8c2d-b6ea2b3b6f22": 4
+      },
+      "hasPhoto": false,
+      "createdAt": "2026-07-23T15:33:11.595Z",
+      "updatedAt": "2026-07-23T15:50:51.955Z"
+    }
+  ],
+  "tags": [
+    {
+      "id": "aim",
+      "label": "Aim",
+      "icon": "Crosshair",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "rifle",
+      "label": "Rifle",
+      "icon": "Target",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "awp",
+      "label": "AWP",
+      "icon": "Telescope",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "aug",
+      "label": "AUG",
+      "icon": "Zap",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "smg",
+      "label": "SMG",
+      "icon": "Wind",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "utility",
+      "label": "Utility",
+      "icon": "Bomb",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "tactics",
+      "label": "Tactics",
+      "icon": "Brain",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "setup",
+      "label": "Setup",
+      "icon": "Puzzle",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "defense",
+      "label": "Defense",
+      "icon": "Shield",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "attack",
+      "label": "Attack",
+      "icon": "Swords",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "teamwork",
+      "label": "Teamwork",
+      "icon": "Users",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "clutch",
+      "label": "Clutch",
+      "icon": "Flame",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "multikill",
+      "label": "Multi-kill",
+      "icon": "Skull",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "map",
+      "label": "Map knowledge",
+      "icon": "Map",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "entry",
+      "label": "Entry",
+      "icon": "DoorOpen",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "sacrifice",
+      "label": "Sacrifice",
+      "icon": "HeartHandshake",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "listen",
+      "label": "Listens to calls",
+      "icon": "Ear",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "mentalRisk",
+      "label": "Affected by pressure",
+      "icon": "AlertTriangle",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "inconsistent",
+      "label": "Inconsistent",
+      "icon": "TrendingDown",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "lowUtility",
+      "label": "Weak utility",
+      "icon": "CircleMinus",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "lowTeamwork",
+      "label": "Limited teamwork",
+      "icon": "UserMinus",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "teamFlash",
+      "label": "Team-flashes",
+      "icon": "EyeOff",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "disciplineRisk",
+      "label": "Lacks discipline",
+      "icon": "Footprints",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "pc",
+      "label": "Strong PC",
+      "icon": "Monitor",
+      "kind": "neutral",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "pistol-ace",
+      "label": "Pistol Round Ace",
+      "icon": "CircleDot",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "one-tap",
+      "label": "One-Tap Threat",
+      "icon": "Focus",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "spray-control",
+      "label": "Spray Control",
+      "icon": "AlignJustify",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "wallbang",
+      "label": "Wallbang Sense",
+      "icon": "ScanLine",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "smoke-lineups",
+      "label": "Smoke Lineups",
+      "icon": "CloudFog",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "molotov-control",
+      "label": "Molotov Control",
+      "icon": "FlameKindling",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "flash-assist",
+      "label": "Flash Assist",
+      "icon": "Sparkle",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "he-damage",
+      "label": "HE Damage",
+      "icon": "Bomb",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "shot-caller",
+      "label": "Shot Caller",
+      "icon": "Megaphone",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "mid-round",
+      "label": "Mid-Round Adjustments",
+      "icon": "Radio",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "retake-specialist",
+      "label": "Retake Specialist",
+      "icon": "ShieldCheck",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "post-plant",
+      "label": "Post-Plant Positioning",
+      "icon": "MapPinned",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "anti-eco",
+      "label": "Anti-Eco Discipline",
+      "icon": "PiggyBank",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "lurker-style",
+      "label": "Lurker",
+      "icon": "Footprints",
+      "kind": "neutral",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "space-creator",
+      "label": "Space Creator",
+      "icon": "Expand",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "trade-fragger",
+      "label": "Trade Fragger",
+      "icon": "Repeat2",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "game-sense",
+      "label": "Game Sense",
+      "icon": "Radar",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "sound-reading",
+      "label": "Sound Reading",
+      "icon": "Ear",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "crosshair-placement",
+      "label": "Crosshair Placement",
+      "icon": "Aperture",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "movement",
+      "label": "Movement / Bhop",
+      "icon": "Wind",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "peekers-advantage",
+      "label": "Peeker's Advantage",
+      "icon": "ArrowLeftRight",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "hype-teammate",
+      "label": "Hype Teammate",
+      "icon": "Smile",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "tilt-proof",
+      "label": "Tilt-Proof",
+      "icon": "Anchor",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "warmup-discipline",
+      "label": "Warm-Up Discipline",
+      "icon": "Dumbbell",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "reliable-attendance",
+      "label": "Reliable Attendance",
+      "icon": "CalendarCheck",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "rage-prone",
+      "label": "Rage-Prone",
+      "icon": "AlertOctagon",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "baiter",
+      "label": "Baiter",
+      "icon": "UserX",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "toxic-comms",
+      "label": "Toxic Comms",
+      "icon": "MicOff",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "flaky-attendance",
+      "label": "Flaky Attendance",
+      "icon": "CalendarX",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "save-round-hero",
+      "label": "Save-Round Hero",
+      "icon": "ShieldAlert",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "ghosts-calls",
+      "label": "Ghosts Calls",
+      "icon": "UserMinus",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "unstable-connection",
+      "label": "Unstable Connection",
+      "icon": "WifiOff",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "good-mic",
+      "label": "Good Mic Setup",
+      "icon": "Mic",
+      "kind": "neutral",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "clutch-king",
+      "label": "Clutch King",
+      "icon": "Crown",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "ace-machine",
+      "label": "Ace Machine",
+      "icon": "Sparkles",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "the-wall",
+      "label": "The Wall",
+      "icon": "Shield",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "human-aimbot",
+      "label": "Human Aimbot",
+      "icon": "Crosshair",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "one-tap-god",
+      "label": "One-Tap God",
+      "icon": "Zap",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "nade-king",
+      "label": "Nade King",
+      "icon": "Bomb",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "silent-assassin",
+      "label": "Silent Assassin",
+      "icon": "Ghost",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "the-cleaner",
+      "label": "The Cleaner",
+      "icon": "CheckCheck",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "glue-guy",
+      "label": "Glue Guy",
+      "icon": "Link",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "eco-warrior",
+      "label": "Eco Warrior",
+      "icon": "Coins",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "boost-buddy",
+      "label": "Boost Buddy",
+      "icon": "ArrowUpCircle",
+      "kind": "positive",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "rage-quitter",
+      "label": "Rage Quitter",
+      "icon": "LogOut",
+      "kind": "warning",
+      "createdAt": "2026-07-23T11:01:59.469Z"
+    },
+    {
+      "id": "b137f39e-455e-4630-985b-7cb01f181447",
+      "label": "Low Trust",
+      "icon": "BatteryLow",
+      "kind": "warning",
+      "createdAt": "2026-07-23T15:38:28.943Z"
+    },
+    {
+      "id": "382ecf04-a94e-4d7f-8c2d-b6ea2b3b6f22",
+      "label": "Self-Sacrifice",
+      "icon": "Tag",
+      "kind": "warning",
+      "createdAt": "2026-07-23T15:50:42.276Z"
+    },
+    {
+      "id": "83b9fa5f-3744-4657-84de-e17247af1442",
+      "label": "Choker",
+      "icon": "Bug",
+      "kind": "warning",
+      "createdAt": "2026-07-23T15:52:39.107Z"
+    },
+    {
+      "id": "433cc8cb-8fa2-4277-9ede-349f7d0a1c09",
+      "label": "Mobile Crematorium",
+      "icon": "Flame",
+      "kind": "warning",
+      "createdAt": "2026-07-23T16:28:27.642Z"
+    },
+    {
+      "id": "a44667bf-da45-45c6-9d2e-c13b0eb52abe",
+      "label": "Human Mine Sweeper",
+      "icon": "Skull",
+      "kind": "positive",
+      "createdAt": "2026-07-23T16:39:12.811Z"
+    },
+    {
+      "id": "7534bf6b-d006-42c9-9a17-fda4dbe116d6",
+      "label": "Cable-Bitten God",
+      "icon": "WifiOff",
+      "kind": "warning",
+      "createdAt": "2026-07-23T16:48:30.024Z"
+    }
+  ],
+  "changelog": {
+    "total": 27,
+    "entries": [
+      {
+        "id": "053335bb-08b7-4a19-b662-b722aeea2d0b",
+        "at": "2026-07-23T16:48:35.792Z",
+        "ip": "[redacted]",
+        "playerId": "kill",
+        "playerName": "KILL",
+        "field": "tagAdded",
+        "to": "Cable-Bitten God",
+        "message": "KILL showed enough Cable-Bitten God to earn the tag."
+      },
+      {
+        "id": "69a315c4-9625-4334-8709-9b4d3ec8632f",
+        "at": "2026-07-23T16:44:52.265Z",
+        "ip": "[redacted]",
+        "playerId": "tainm",
+        "playerName": "TaiNM",
+        "field": "photo",
+        "message": "TaiNM's avatar has been updated."
+      },
+      {
+        "id": "5a079f12-f73e-4a7c-b1ac-ea2888ea3828",
+        "at": "2026-07-23T16:39:21.184Z",
+        "ip": "[redacted]",
+        "playerId": "tainm",
+        "playerName": "TaiNM",
+        "field": "tagAdded",
+        "to": "Human Mine Sweeper",
+        "message": "It's official — TaiNM has Human Mine Sweeper energy."
+      },
+      {
+        "id": "d0e8439a-bb16-490d-88b2-fc3936ca0dca",
+        "at": "2026-07-23T16:28:35.266Z",
+        "ip": "[redacted]",
+        "playerId": "longkhatmau",
+        "playerName": "longkhatmau",
+        "field": "tagAdded",
+        "to": "Mobile Crematorium",
+        "message": "Tagged: longkhatmau now carries Mobile Crematorium."
+      },
+      {
+        "id": "0c6bf091-54d5-4702-9612-5e7d01517df1",
+        "at": "2026-07-23T16:17:23.249Z",
+        "ip": "[redacted]",
+        "playerId": "longkhatmau",
+        "playerName": "longkhatmau",
+        "field": "photo",
+        "message": "Fresh photo uploaded for longkhatmau."
+      },
+      {
+        "id": "1397d5d7-b35d-438a-b546-5e76105cc7fa",
+        "at": "2026-07-23T16:17:20.028Z",
+        "ip": "[redacted]",
+        "playerId": "longkhatmau",
+        "playerName": "longkhatmau",
+        "field": "name",
+        "from": "Longkhatmau",
+        "to": "longkhatmau",
+        "message": "Longkhatmau is now known as longkhatmau."
+      },
+      {
+        "id": "93b8f65c-ccbb-4a4c-920e-e0c4511fe206",
+        "at": "2026-07-23T16:13:31.187Z",
+        "ip": "[redacted]",
+        "playerId": "trunk",
+        "playerName": "Trunk",
+        "field": "photo",
+        "message": "Trunk got a glow-up. New photo on file."
+      },
+      {
+        "id": "371823fe-79b7-4b2d-8ee6-396b50c3792e",
+        "at": "2026-07-23T15:54:55.643Z",
+        "ip": "[redacted]",
+        "playerId": "993ba217-5ce5-453f-8b54-1f49509229a6",
+        "playerName": "Tofu",
+        "field": "tagAdded",
+        "to": "Toxic Comms",
+        "message": "The council has ruled: Tofu has Toxic Comms."
+      },
+      {
+        "id": "adc305cb-adcc-421b-8364-4aecc470086d",
+        "at": "2026-07-23T15:54:05.303Z",
+        "ip": "[redacted]",
+        "playerId": "993ba217-5ce5-453f-8b54-1f49509229a6",
+        "playerName": "Tofu",
+        "field": "tagAdded",
+        "to": "Choker",
+        "message": "The council has ruled: Tofu has Choker."
+      },
+      {
+        "id": "e18a2224-53fc-4c4d-8e7a-534988c78d43",
+        "at": "2026-07-23T15:50:54.323Z",
+        "ip": "[redacted]",
+        "playerId": "caa67a26-0281-4083-b0b5-3f7dc7350d48",
+        "playerName": "Zon",
+        "field": "tagAdded",
+        "to": "Self-Sacrifice",
+        "message": "Badge ceremony: Zon receives Self-Sacrifice."
+      },
+      {
+        "id": "cc7db4be-0e91-4be2-bded-f1220a76db4f",
+        "at": "2026-07-23T15:50:53.900Z",
+        "ip": "[redacted]",
+        "playerId": "caa67a26-0281-4083-b0b5-3f7dc7350d48",
+        "playerName": "Zon",
+        "field": "tagAdded",
+        "to": "Map knowledge",
+        "message": "Zon leveled up their profile with Map knowledge."
+      },
+      {
+        "id": "1a79a44d-ea2b-44e1-a4ba-bdd1888616fe",
+        "at": "2026-07-23T15:50:53.453Z",
+        "ip": "[redacted]",
+        "playerId": "caa67a26-0281-4083-b0b5-3f7dc7350d48",
+        "playerName": "Zon",
+        "field": "tagAdded",
+        "to": "Setup",
+        "message": "New skill on file for Zon: Setup."
+      },
+      {
+        "id": "9b40eb8f-df8a-4e76-bd20-c8fc41ba8192",
+        "at": "2026-07-23T15:50:53.023Z",
+        "ip": "[redacted]",
+        "playerId": "caa67a26-0281-4083-b0b5-3f7dc7350d48",
+        "playerName": "Zon",
+        "field": "tagAdded",
+        "to": "Aim",
+        "message": "New badge unlocked for Zon: Aim."
+      },
+      {
+        "id": "042f4080-808e-46be-97df-15c745e7aaff",
+        "at": "2026-07-23T15:50:52.384Z",
+        "ip": "[redacted]",
+        "playerId": "caa67a26-0281-4083-b0b5-3f7dc7350d48",
+        "playerName": "Zon",
+        "field": "score",
+        "from": 60,
+        "to": 69,
+        "message": "Small steps, real progress: Zon now at 69."
+      },
+      {
+        "id": "7ee84278-447f-4da3-8afa-d174abcdc601",
+        "at": "2026-07-23T15:46:10.818Z",
+        "ip": "[redacted]",
+        "playerId": "hungkhatmau",
+        "playerName": "hungkhatmau",
+        "field": "photo",
+        "message": "New look for hungkhatmau — photo updated."
+      },
+      {
+        "id": "100c0cf3-020d-433a-93b1-948ce16c05af",
+        "at": "2026-07-23T15:44:19.079Z",
+        "ip": "[redacted]",
+        "playerId": "tainm",
+        "playerName": "TaiNM",
+        "field": "score",
+        "from": 40,
+        "to": 35,
+        "message": "The numbers took a hit: TaiNM down to 35."
+      },
+      {
+        "id": "619374a9-c1d4-4bfe-925b-3b25955d1300",
+        "at": "2026-07-23T15:38:40.385Z",
+        "ip": "[redacted]",
+        "playerId": "danking",
+        "playerName": "DanKing",
+        "field": "tagAdded",
+        "to": "Low Trust",
+        "message": "DanKing leveled up their profile with Low Trust."
+      },
+      {
+        "id": "2c5a3f77-77ea-42e1-b3b3-7d6a57986123",
+        "at": "2026-07-23T15:38:39.733Z",
+        "ip": "[redacted]",
+        "playerId": "danking",
+        "playerName": "DanKing",
+        "field": "score",
+        "from": 65,
+        "to": 67,
+        "message": "Small steps, real progress: DanKing now at 67."
+      },
+      {
+        "id": "3f2c89e1-6636-425d-85dd-5df2aa3cb38a",
+        "at": "2026-07-23T15:37:27.165Z",
+        "ip": "[redacted]",
+        "playerId": "danking",
+        "playerName": "DanKing",
+        "field": "score",
+        "from": 67,
+        "to": 65,
+        "message": "Not DanKing's week — rating adjusted down to 65."
+      },
+      {
+        "id": "aad50103-5f25-44eb-bd9d-c93890be79e4",
+        "at": "2026-07-23T15:37:01.937Z",
+        "ip": "[redacted]",
+        "playerId": "bach-khoi",
+        "playerName": "Bạch Khởi",
+        "field": "score",
+        "from": 80,
+        "to": 70,
+        "message": "Bạch Khởi's streak ended — new score 70."
+      },
+      {
+        "id": "8b02c83c-1716-4b99-916c-c58463f6a816",
+        "at": "2026-07-23T15:34:02.570Z",
+        "ip": "[redacted]",
+        "playerId": "tainm",
+        "playerName": "TaiNM",
+        "field": "score",
+        "from": 30,
+        "to": 40,
+        "message": "Small steps, real progress: TaiNM now at 40."
+      },
+      {
+        "id": "43f34e30-4d3a-4956-bffb-78d9432ca9a3",
+        "at": "2026-07-23T15:33:45.125Z",
+        "ip": "[redacted]",
+        "playerId": "ladygaga",
+        "playerName": "Ladygaga",
+        "field": "score",
+        "from": 45,
+        "to": 48,
+        "message": "Ladygaga earned a promotion. New rating: 48."
+      },
+      {
+        "id": "d1d38038-48d0-4cdf-9bf3-faaf6b0d497b",
+        "at": "2026-07-23T15:33:32.755Z",
+        "ip": "[redacted]",
+        "playerId": "ladygaga",
+        "playerName": "Ladygaga",
+        "field": "score",
+        "from": 50,
+        "to": 45,
+        "message": "Ladygaga dropped 5 points. Blame the ping, not the aim."
+      },
+      {
+        "id": "1c155dbc-c8f9-4693-b758-c2ca91c78b9f",
+        "at": "2026-07-23T15:33:25.109Z",
+        "ip": "[redacted]",
+        "playerId": "hungkhatmau",
+        "playerName": "hungkhatmau",
+        "field": "score",
+        "from": 40,
+        "to": 50,
+        "message": "The scoreboard agrees: hungkhatmau is on the up, now 50."
+      },
+      {
+        "id": "11231fd7-8122-42c4-acd8-06c8e7fad741",
+        "at": "2026-07-23T15:33:12.110Z",
+        "ip": "[redacted]",
+        "playerId": "caa67a26-0281-4083-b0b5-3f7dc7350d48",
+        "playerName": "Zon",
+        "field": "created",
+        "to": 60,
+        "message": "Zon has entered the server."
+      },
+      {
+        "id": "7817dda5-5201-4cbd-9882-0c756f65207a",
+        "at": "2026-07-23T15:32:31.277Z",
+        "ip": "[redacted]",
+        "playerId": "ladygaga",
+        "playerName": "Ladygaga",
+        "field": "score",
+        "from": 63,
+        "to": 50,
+        "message": "Not Ladygaga's week — rating adjusted down to 50."
+      },
+      {
+        "id": "cbdb2988-fb0a-4ff6-b059-374dd3f40149",
+        "at": "2026-07-23T15:32:13.899Z",
+        "ip": "[redacted]",
+        "playerId": "993ba217-5ce5-453f-8b54-1f49509229a6",
+        "playerName": "Tofu",
+        "field": "created",
+        "to": 55,
+        "message": "New player registered: Tofu."
+      }
+    ]
+  }
+}

@@ -1,0 +1,567 @@
+# CS2 Friend Equalizer — Design Document
+
+Rebuild of `references/index.html` (a single-file localStorage prototype) as a real Nuxt app: shared player roster on Cloudflare, shadcn-vue UI, dark mode default, GSAP-powered polish. Team-building itself stays a client-side feature, same as the reference app.
+
+## 1. Summary
+
+| | |
+|---|---|
+| **What's server-backed** | Player profiles (name, score, role, tags + skill levels, photo) and the public change log. |
+| **What's client-only** | Team-building: who's selected, team assignments, locks, tolerance, team names/count — `localStorage`, never sent to Cloudflare. |
+| **Stack** | Nuxt 4 + Vue 3 + TypeScript, shadcn-vue (Tailwind v4 under the hood), GSAP, pnpm. |
+| **Backend** | Nitro on Cloudflare Workers (plain `wrangler`, not NuxtHub) + Cloudflare KV. |
+| **Auth** | Public reads (roster/player/teams/changelog, no PIN needed) — the shared 6-digit PIN is only required to make changes, and grants a 15-minute CRUD token per session. IP-based brute-force lockout (5 attempts → 24h block) still applies to the PIN itself. |
+| **Pages** | Roster grid, player detail, team builder, change log — see §5. |
+| **Domain** | `csgo2.doxanh.dev` (replaces whatever currently uses that hostname). |
+| **Ops** | `Makefile` — deploy, rotate PIN. |
+| **Out of scope (v1)** | Match history (the specific team splits themselves), accounts/roles, multi-device sync of an in-progress split. |
+
+## 2. Decisions log
+
+Reasoning behind each call, so it's clear these were deliberate, not defaults:
+
+1. **KV stores player profiles + change log, not match state.** Team-building is a client feature over whichever players are currently selected, not something devices need to agree on.
+2. **Team-builder state still persists locally (`localStorage`)** — a refresh doesn't lose an in-progress split, matching the reference app's `saveState()`, just never leaving the browser.
+3. **No match-history feature in v1** (i.e. no "save this exact split for later"). The change log (§9) is a different thing — it's a running history of *profile edits*, which is in scope and requested.
+4. **Shared PIN, not per-user accounts** — and **public reads, PIN-gated writes**, revised from an earlier whole-app gate. A small friend group behind one link; 6-digit PIN with lockout is proportionate. IP-based rate limiting has a known trade-off — everyone behind the same NAT shares a lockout — accepted for this use case. The *first* pass put the PIN in front of the entire app (a `LoginGate` blocking every page); revised per explicit direction so anyone can view the roster/player pages/teams/changelog with no PIN at all, and only create/update/delete/upload/reset need it. Submitting the correct PIN (`POST /api/auth/login`) mints a **CRUD token** stored in the session, valid for **15 minutes** (`CRUD_TOKEN_TTL_MS`) — not tied to the session cookie's own (30-day) lifetime, so the cookie persists across visits while the actual write permission expires quickly and predictably. `server/middleware/auth.ts` only checks non-`GET` API requests; reads never touch the session at all. The client shows a compact "Locked"/"Unlocked Xm:Ss" indicator in the nav (`UnlockIndicator.vue`) and a modal PIN prompt (`CrudPinDialog.vue`) that any mutating composable call triggers on demand (`requireCrudToken()`/`ensureCrudToken()` in `useCrudGate.ts`) — no more full-page block.
+5. **Plain Cloudflare Workers + `wrangler`, not NuxtHub.** NuxtHub's secrets/KV management leans on its web Admin UI; `wrangler secret put` / `wrangler deploy` are what a `Makefile` can call cleanly. `wrangler.toml` also declares the custom domain route declaratively.
+6. **KV split into `roster:index` + `player-photo:<id>` per-player keys**, not one JSON blob — once photos entered scope, one blob would mean every score edit rewrites every other player's photo too.
+7. **Tags use a curated Lucide icon picker, not emoji.** Emoji render inconsistently across OS/browsers and ignore the color theme; Lucide icons inherit `currentColor` and tint correctly via the tag's positive/warning/neutral token. (`emoji-js` — raised as an option — is actually a shortcode↔unicode text converter for chat messages, not a picker UI, so it wasn't a fit either way.)
+8. **Tailwind v4 `prefix` skipped** — shadcn-vue's own CLI support for it is acknowledged-incomplete by the maintainers. The skill's "class for layout only, semantic tokens for color" rule gives the same isolation without the risk.
+9. **Tags get a skill level (1–5), not just presence/absence** — but expressed purely as **color intensity**, not a number on the badge. Reframing "tag = has this skill" as "tag = this skill, at some level" matches how the user actually talks about players ("if Quang is a 10, Colia is an 8") while keeping the badge itself uncluttered; the player-detail page still gets real per-tag data to chart (§10).
+10. **Team count defaults to 2, but is a free-form number, not capped at 4.** Two teams is still the common case (matches the reference app exactly); any higher count is allowed as long as there are enough selected players to fill that many teams (§6) — a validation rule, not a hardcoded ceiling.
+11. **A public, IP-stamped change log**, not silent edits. Every profile mutation (score, tag, role, photo, name, create/delete) is logged with who (by IP), when, and what — visible to anyone who's logged in, matching "people should see how this player is improving." Flavor text is randomized from a large template pool (§9) so the log reads like a lively feed, not a database dump.
+12. **Delete requires confirmation (`AlertDialog`); create/edit do not get a second nested confirmation** — the edit dialog's own "Save" is the confirm step. A second "are you sure you want to save?" after an explicit Save click is friction without benefit; flag this if a stricter reading of "every action needs confirm" was intended.
+13. ~~Top-5 players get a visual highlight (glowing ring + badge)~~ — **superseded by #22** (S/A/B/C/D tier badges + border accent replace the top-5 ring entirely).
+14. **GSAP for motion**: entrance stagger per page, Flip-powered movement when a player is assigned to a team. All motion respects `prefers-reduced-motion`. (Expanded in #24.)
+15. ~~Color: green primary, red for the "other" team~~ — **superseded by #28** (neon-on-dark tactical palette: cyan primary, cyan/magenta/amber/green per-team accents).
+16. ~~Charts are Bar/Line/Area only~~ — **partly superseded by #28**: shadcn-vue's own chart set (Unovis) still has no radar chart, but the player-detail attributes panel later got a hand-built inline-SVG radar as its primary visual, with the horizontal bar chart kept alongside for the actual per-tag numbers.
+17. **Migration re-derives tags/roles/titles rather than copying the reference app's tag ids 1:1.** `server/utils/seed-data.ts` keeps the reference app's 14 players and their scores (they already track `references/note.txt`'s relative comparisons — e.g. "if Quang is a 10, Colia is around 8" ⇒ 100/83 — so the numbers weren't rewritten), but each player's tags, tag *levels*, and role are a fresh read of the note against the new catalog: e.g. Trunk gains a `lowUtility` tag and the `human-aimbot` title because the note explicitly says he "lacks knowledge of grenade lineups" despite very strong aim — the reference app had no tag for that gap at all. hungkhatmau's reference `entry` tag was dropped (the note describes a support/sacrifice player, not an entry fragger) in favor of `listen` + `boost-buddy`. See the inline per-player comments in `seed-data.ts` for the rest of the reasoning.
+    - **Corrected after review** (direct knowledge of the actual players beats note.txt's phrasing): Foyu's title changed from Glue Guy to **Clutch King** (the reference app's own fixup logic specifically called out his clutch factor); Đen's utility is *very* low, not just absent (`lowUtility` at 5) and he *always* — not just often — flashes teammates (`teamFlash` bumped to 5); Longkhatmau is genuinely good at AWP (bumped to 5) and his teamwork is **normal**, not a weakness — `lowTeamwork` removed entirely rather than downgraded, since "normal" means no tag at all, not a milder warning tag.
+18. ~~Import (restore-from-file) removed entirely, not just PIN-gated.~~ It briefly existed (upload a JSON export, wholesale-replace the roster + tag catalog) alongside Export/Reset. Once writes became PIN-gated rather than the whole app, it stood out as meaningfully riskier than any other single mutating action — a bad or malicious file replaces *everyone's* data in one shot, versus one player/tag at a time for everything else — so it was cut outright rather than just requiring the same PIN as a normal edit. Export (read-only, download a snapshot) stayed; **Reset was later also removed entirely — see #25.**
+19. **Dropped the generic `smart` tag entirely** (was applied to Quang, Colia, KILL). Unlike `aim`/`awp`/specific skill tags, "smart" is vague and judgment-laden — tagging only 3 of 14 players as "smart" implicitly reads as "the other 11 aren't," a much harsher omission than skipping a discrete skill tag. It was also redundant: `tactics` and `game-sense` already describe the same underlying trait (situational awareness/decision-making) far more specifically. All three players' "smart" mentions were re-expressed as `game-sense` instead (Quang already had it at 5 via `tactics`/`game-sense`, so nothing was added there; Colia and KILL gained `game-sense` in its place).
+20. **`tactics` and `game-sense` stay as two separate tags — considered merging them (same question as `smart`), decided against it.** They're genuinely different axes, not a duplicate: `tactics` is *prepared* knowledge (memorized lineups/setups/executes — the playbook), `game-sense` is *live* reading (footsteps, utility timing, rotations — reacting to what's actually happening this round). A player can have one without the other, and the roster already reflects that asymmetrically (KILL: more game-sense than tactics; Bạch Khởi: the reverse; Quang: both maxed) — real variation, not redundant labeling. Foyu and Ksir both picked up `game-sense: 3` on top of their existing tags for this reason.
+21. ~~HieuLH added as a 15th player~~ — **reverted.** Turned out to be Trunk under another name, not a distinct person; the `game-sense: 3` originally requested for "HieuLH" was moved onto Trunk instead, and the standalone player entry was deleted. Roster is back to its real 14. Left this entry in the log (rather than deleting it outright) as a record that a 15th "player" briefly existed and why it's gone.
+22. **Top-5 gold-ring highlight replaced with an S/A/B/C/D tier system** (§8), and **CRUD buttons (Add player/Edit/Delete/Reset) are hidden entirely until unlocked**, replacing "always visible, PIN-gated on click." Two independent requests landed together: the ring read as "cheap," and a tier list matches how the user already talks about players (S-tier, A-tier); separately, the always-visible-but-gated buttons meant clicking Save inside an already-open `PlayerEditDialog` could try to pop `CrudPinDialog` *on top of* it — two shadcn `Dialog`s stacking, which could fail to render the second one visibly. Hiding every mutating control until `useIsCrudUnlocked()` is true means a user must unlock *before* any edit dialog can even open, which removes that stacking scenario by construction rather than patching around it. The roster toolbar shows a single "Unlock to edit" button in the locked state in place of Add player/Reset; `PlayerCard`'s footer (Edit/Delete) and the player-detail page's Edit button are gated the same way. The dropped tier considered and rejected an `A-` sub-grade (user: "I am dont know why have A-... use the list from other system") and a straight fighting-game red-at-S palette (kept gold for S instead, since red is already this app's destructive/delete color — see `app/lib/tier.ts`'s inline comment). **Also dropped `RosterLeaderboard.vue` and its roster-page bar chart** — redundant once every card shows its own tier at a glance.
+23. **Fixed a real reactivity bug in `useCrudGate.ts`**: `unlockCrud()`/`lockCrud()` called `useState()` (via `tokenExpiresAt()`) *after* an `await`, a known Nuxt pitfall — a composable call following an async gap isn't guaranteed to resolve to the same shared state instance every other component reads from. Symptom: the login toast fired ("Unlocked for 15 minutes") but the nav badge, roster toolbar, and every `PlayerCard` footer stayed in locked mode, since their `useIsCrudUnlocked()` computed never saw the update. Fixed by capturing the `useState()` ref synchronously before the `await` (matching the pattern `refreshCrudTokenState()` already used correctly) and mutating `.value` after. Caught via Playwright end-to-end testing against the dev server, not by inspection — worth remembering that a "toast says success" isn't proof the dependent UI actually updated.
+24. **Expanded GSAP beyond the roster grid + Flip-on-assign to every page** (§8), per explicit ask: "apply more effect and animation for all page." Added per-page entrance staggers (`/teams` player-selection list, `/players/[id]` profile/chart/changelog cards, `/changelog`'s feed on first load) and gave `Flip.from()` a `stagger: { from: 'random' }` option for multi-player moves (`optimize`/`randomBalance`) so a full reshuffle reads as players arriving one-by-one rather than the whole grid snapping into its new layout in a single frame — the flat, unstaggered Flip was the concrete "feels like the page froze" complaint.
+25. **Reset (revert-to-seed) removed entirely** — `server/api/reset.post.ts` deleted, along with its roster-toolbar button and confirmation `AlertDialog`. Explicit user request ("please delete reset, we dont allow to reset"); unlike Export (read-only) or Import (already removed in #18), Reset was the one remaining action that could destroy every player/tag/changelog entry in one click, and the user decided the app simply shouldn't offer that at all — not even PIN-gated.
+26. **Fixed three concrete responsive bugs**, found by rendering at a real 375px mobile viewport with Playwright rather than just reading the code: (a) the top nav overflowed horizontally below ~500px because "CS2 Friend Equalizer" + three full-width nav links + the unlock badge + mode toggle never wrapped — rebuilt as a compact `CS2//EQ` wordmark + icon-only nav links (label hidden below `sm:`) inside a `flex-wrap` header so it degrades to a second line instead of overflowing; (b) `DialogContent` consumers (`CrudPinDialog`, `PlayerEditDialog`) passed an unprefixed `max-w-sm`/`max-w-lg` override, which `tailwind-merge` lets win over the base component's mobile-safe `max-w-[calc(100%-2rem)]` gutter — since both are unprefixed utilities in the same class group, the later one cancels the earlier one, so on a narrow screen the dialog rendered edge-to-edge with no margin instead of centered with a 1rem gutter. Fixed by moving the override to a `sm:`-prefixed variant (`sm:max-w-sm`/`sm:max-w-lg`), which doesn't collide with the base's unprefixed rule — the same fix pattern the base component already used internally for its own default size; (c) `/teams`' team-panel grid used an inline `grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))` which forces every column to at least 220px regardless of viewport, so 2+ team panels together exceeded a phone's width — changed to plain `grid-cols-1` below `sm:`, auto-fit only from `sm:` up (`sm:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]`).
+27. **Team-builder's player-selection list gets full card treatment**: role label, tier badge (icon + letter), and the same tier-colored left border as the roster/team-panel cards, not just a name+checkbox+score row — explicit follow-up ask ("also add card style for each player, then easy to see their tier"). Also switched to 2 columns on mobile (`grid-cols-2` from the base breakpoint, not `sm:grid-cols-2`) since the single-column mobile layout was leaving roughly half the screen width empty per row.
+28. **Full visual redesign: retro-futuristic neon-on-dark tactical FPS HUD**, replacing the previous plain shadcn dashboard look, per an explicit detailed design brief ("vibrant neon colors on a dark background... tactical, fast, and data-driven... loadout screens... retro terminal"). Superseded pieces: #15 (green/red palette → neon cyan/magenta/amber/green), the plain Geist-only type system, and the undecorated Card/Dialog components used everywhere.
+    - **Typography**: `Orbitron` (`--font-heading`, used via the existing `cn-font-heading` utility so every shadcn Card/Dialog/Popover/AlertDialog title picks it up automatically) for display text — scores, tier letters, page headings; `Rajdhani` (`--font-sans`) for body/UI text — a condensed technical-feeling face instead of a neutral grotesk; `Share Tech Mono` (`--font-mono`) for anything data/log-flavored — changelog lines, HUD stat labels, chart tooltip numbers.
+    - **Color**: dark-mode tokens rebuilt around a near-black navy background (`oklch(0.14 0.018 260)`) with a neon cyan primary (`oklch(0.83 0.15 200)`). Tag positive/warning/neutral scales and the S/A/B/C/D tier scale (#22) kept their existing hue *families* but were pushed to near-max chroma so they read as glowing rather than muted pastel. Added `--team-a/b/c/d` tokens (cyan/magenta/amber/green) for the team-builder's per-team accent color, cycling if there are more than 4 teams. Light mode got a parallel but much calmer version of the same hue families — the neon treatment is a dark-mode-only choice, since glow effects don't read against a light background.
+    - **Signature motif — `.hud-frame`**: a reusable CSS component class (`app/assets/css/tailwind.css`) that draws two opposing L-shaped corner brackets (top-left + bottom-right) via `::before`/`::after`, colored by an inline `--hud-accent` custom property set per-instance (tier color on player cards and the attributes panel, team color on team panels). Chosen over a `clip-path` angled-corner cut because clipping risks cutting off real content near the corners; brackets are purely decorative and never intersect text.
+    - ~~**Player cards** (`PlayerCard.vue`): `.hud-frame` corners in the player's tier color, a neon box-shadow glow on the existing tier left-border..~~ **Tier badge/glow redesigned in #29** — this first pass under-shot on legibility.
+    - **Team builder** (`/teams`): each `TeamPanel` gets a `.hud-frame` in its assigned team color, a `ShieldIcon` + neon-glow score in that color, and its player rows keep their tier-colored left border; `WaitingList` rows get a dashed border (reads as "bench," distinct from an active team slot). `MetricsBar`'s four stat cards got monospace uppercase labels, neon numbers, and the balance-rating text gained a small glowing status dot (green/amber/red/gray) instead of color-only text — a "match setup HUD" feel per the brief's "team generator module styled like an in-game match setup screen."
+    - **Player attributes panel** (`/players/[id]`, new `PlayerRadarChart.vue`): a hand-built inline-SVG radar/spider chart (no new dependency — shadcn-vue's chart set still doesn't ship radar, per #16) plotting the player's tags as axes (1–5 level as radius fraction), with a glowing filled polygon and ring gridlines, sitting above the existing per-tag bar list (now with a matching neon glow, `tagGlowBarClass` in `app/lib/tag-colors.ts`) inside a single `.hud-frame`-styled "Attributes" card — directly answers the brief's "attributes panel inspired by FPS loadout screens, with holographic frames, radar-style circles, and neon stat indicators." Falls back to the existing empty-state if a player has fewer than 3 tags (a radar needs at least a triangle).
+    - **Changelog** (`/changelog`): wrapped in a `.scanlines`-overlaid terminal window — fake red/amber/green title-bar dots, a `root@cs2-equalizer:~$ tail -f changelog.log` prompt line, monospace entries with a color-coded `[FIELD]` tag (green for score-up/created, red for deleted, cyan for role/name, gray for tag/photo) and a neon-glowing timestamp — the brief's "retro terminal look: scanlines, pixel-tech accents, glowing timestamps, and patch-note style formatting."
+    - **Default avatar + favicon**: `references/icon` (the same abstract "dx" mark used as the app's own brand icon) copied into `public/` at several sizes and wired as (a) every player's fallback avatar (`AvatarImage :src="player.hasPhoto ? ... : '/default-avatar.png'"`, replacing the plain initials fallback) and (b) the site favicon/apple-touch-icon via `nuxt.config.ts`'s `app.head.link`, plus the nav wordmark (`CS2//EQ` next to a small copy of the icon).
+29. **Tier badge redesigned for legibility** — explicit feedback that #28's small icon+letter chip ("hard to see", "icon beside tier rank seems not nice") wasn't working. Changes, all in `app/lib/tier.ts`: (a) **dropped the per-tier Lucide icon entirely** — a small icon next to a small letter was noise, not signal, on a card already dense with tag chips; (b) the badge itself grew from an 11px inline chip to a standalone ~44px square with the letter alone at `text-2xl font-black`, moved to its own slot at the start of the card header (next to the avatar, not squeezed beside the score); (c) **the glow moved from a left-edge-only shadow to a full-perimeter ring + halo** (`Tier.glowClass`: `shadow-[0_0_0_1px_var(--tier-x),0_0_36px_-6px_var(--tier-x),0_0_64px_-16px_var(--tier-x)]`) so the *whole card* reads as lit up in the tier color, not just a stripe down one side; the left border itself also thickened (4px → 6px) as a secondary at-a-glance signal; (d) added a `.tier-pulse` CSS keyframe (`app/assets/css/tailwind.css`, gated behind `@media (prefers-reduced-motion: no-preference)`) — a slow 2.6s brightness/saturation breathe on the badge — so it reads as a lit neon sign rather than a static color swatch. A second `Tier.badgeGlowClass` (tighter blur radius) exists specifically for the small badge element, since the full card glow's 64px blur would have overwhelmed a 44px badge. Applied identically on `PlayerCard.vue` and the `/players/[id]` header.
+30. **Random balance/optimize no longer freezes the page — moved the actual computation into a Web Worker**, confirmed by benchmark before fixing rather than assumed: the 2-team exhaustive search (`shared/utils/balance.ts`) enumerates every valid split, which for a full 14-player roster is ~250,000 combinations and measured at ~530ms of pure synchronous JS — entirely blocking the main thread on click, matching the reported "press then hang, then all players assigned" exactly (no repaint is possible mid-block, so no loading state could show either, and Flip then animated from an already-stale DOM). Fixed per the explicit suggestion to use VueUse for this: `app/workers/balance.worker.ts` is a real ES-module Worker (imports the actual `shared/utils/balance.ts`/`balanceNTeams.ts` functions unmodified, no logic duplication) loaded via `new Worker(new URL(...), { type: 'module' })`; `app/composables/useBalanceWorker.ts` wraps it with VueUse's `useWebWorker(worker)` overload (the "I already have a Worker instance" variant, not `useWebWorkerFn`'s stringify-a-closure variant — that one can't reference the shared module's other functions) plus a small request/response-id correlation map so multiple calls don't cross-resolve. `useTeamBalancer.ts`'s `optimize()`/`randomBalance()` are now `async`, expose `isComputing`, and deep-clone the player list (`JSON.parse(JSON.stringify(...))`) before posting — Vue's reactive proxies aren't structured-cloneable and `postMessage` throws `DataCloneError` on one directly. Verified fixed by measuring requestAnimationFrame gap during the interaction: ~530ms unbroken block before → largest single frame gap after is the Flip animation's own unavoidable layout-measurement pass (~30–110ms, imperceptible), confirmed via Playwright against both the dev server and the actual Cloudflare Workers build output (`wrangler dev` on the built `.output/`, not just the Vite dev server — worker bundling behaves differently enough between the two that only the dev server passing wouldn't have proven anything about production).
+31. **Added a "match assembly" experience around team generation**, GSAP-driven per explicit requirement ("must use greensock"): `TeamAssemblyBanner.vue` shows a `MATCHMAKING...` HUD banner (rotating radar icon + sweeping scanline, both `gsap.timeline({repeat: -1})`) for as long as `isComputing` is true (#30), then — once assignments land — cycles through a per-player "who joined which team" announcement line (`> {name} joins {team}` style) via a `gsap.timeline()` that fades each line in/out in sequence, total duration scaled to the player count so it never runs unreasonably long. Message variety comes from `app/lib/team-assign-messages.ts`, a 25-template pool in the same pick+render style as `server/utils/changelog-messages.ts` (e.g. "{name} suits up for {team}.", "{team} drafts {name}.", "Tactical assignment: {name} to {team}.") — explicit ask for "more than 20" so repeated random-balances don't feel like the same line on loop. Also added `app/composables/useSfx.ts` — short Web Audio-synthesized blips (no audio files to source or host) for player-selection toggle, team assign/unassign, and a two-note success chime on optimize/random-balance — since all calls happen inside click handlers, the browser's autoplay-requires-a-gesture policy is already satisfied.
+    - **Bug found and fixed during verification**: the announcement ticker initially showed only its *last* message for ~500ms instead of cycling through all of them. Root cause: `TeamAssemblyBanner.vue`'s `<p ref="lineEl">` sits behind a `v-else` paired with the matchmaking `<p v-if>`, so on the phase transition the ref's underlying element doesn't exist yet at the instant the `watch()` callback runs synchronously — it was reading a stale/null ref and always falling into the "no ref" fallback path meant for `prefers-reduced-motion`. Fixed by `await nextTick()` before touching phase-specific refs. Same latent bug existed for the matchmaking radar icon, which was also `ref`'d directly on a `<RadarIcon>` *component* rather than a DOM element (Vue template refs on components resolve to the component instance, not necessarily its root DOM node) — moved the ref onto a wrapping `<span>`. Caught by polling the actual DOM text content over time in Playwright rather than trusting sparse screenshots, which had made it look like it was working by sheer bad luck of sampling timing.
+32. **Tier badge got a "metallic 3D" bevel + card background got a subtle carbon-fiber texture + hover-lift + a HUD-style score readout**, per a follow-up design brief asking specifically for these on the player card. All new reusable classes in `tailwind.css`: `.tier-badge-3d` (a diagonal light→dark gradient overlay plus inset highlight/shadow, layered on top of the tier's flat `bg-tier-x` color — same "background-image over background-color" trick as the rest of the badge — with its own small clip-path corner cut, safe at this size since the letter is centered well clear of the corners); `.carbon-fiber` (two overlapping low-opacity diagonal `repeating-linear-gradient`s, deliberately subtle so it reads as material rather than visual noise); `.hover-lift` (a `translateY` + `brightness` transition on hover, gated behind `prefers-reduced-motion: no-preference`). The score display gained a small `SCORE` mono-uppercase label above the number (a "HUD readout" treatment) and role text gained a small tier-colored glowing status dot. Deliberately did **not** clip-path the whole card into angled corners as literally requested — that would have clipped the full-perimeter tier glow (#29) right at the corners, undoing the "hard to see tier" fix from the same conversation; the angled-corner treatment landed on the smaller tier badge instead, where there's no competing glow to lose.
+33. ~~Renamed the top nav link and roster-page heading from "Roster" to "Players"~~ — **reverted one message later** ("We should use Roster as CSGO2 Professional"), after the user reconsidered following the note above that "Roster" is itself the standard esports term. Back to "Roster" in both places.
+34. **Tier badge moved from the left of the avatar to the top-right of the card** (next to score, both right-aligned) — explicit feedback that top-right is the expected spot. **Card grid gap widened** (`gap-3` → `gap-5`) for breathing room between cards. **Tier B recolored** — S (gold, hue 90) and B (yellow, hue 100) sat only 10° apart on the hue wheel and read as "the same yellow" at a glance; B shifted to hue 125 (a clearly lime/chartreuse yellow-green, both light and dark mode tokens) so it's unambiguously distinct from S while still reading as "yellow-family, one step down from gold." **Changelog's description corrected** — it said "visible to anyone signed in," left over from the app's very first draft (a full-app PIN gate, decisions log #4) and never updated after that model was replaced with public-reads/PIN-gated-writes; the changelog needs no sign-in at all, so the copy was wrong and now says "visible to everyone, no sign-in required."
+35. **Single player moves (assign one waiting player to a team, or unassign one back) got a dedicated "ghost clone" flight animation, distinct from the bulk Flip-stagger used by optimize/random-balance.** Per an explicit, detailed brief for this exact technique: `teams.vue`'s `flyPlayerRow()` clones the source row's actual DOM node (`cloneNode(true)`, preserving its real tier-colored styling rather than building a synthetic look-alike) at its exact `getBoundingClientRect()` position, appends it to `<body>` as a `position: fixed` overlay, and flies it toward the destination slot with a `power2.out` ease (fast start, decelerating into the landing spot) while a `setInterval`-driven trail of fading low-opacity echoes trails behind it. **The real data mutation (`builder.assign`/`unassign`) only happens after the flight's `onComplete`** — so there's no layout jump while the clone is still visually in transit — followed by a GSAP scale-in bounce (`back.out`) plus a `.just-landed` CSS keyframe glow-flash on the newly-landed real row. Destination position is an approximation (bottom of the destination slot's last existing row, or its top if empty) since the real row's eventual position isn't knowable before Vue re-renders — acceptable since the clone is already most of the way there by the time anyone would notice the imprecision. Echoes are tracked in a `Set` and force-removed after the flight resolves as a defensive backstop, rather than relying solely on each echo's own async fade-out completing.
+36. **Fixed a real sequencing bug found while verifying the above**: `runWithFlip()`'s `Flip.from(...)` call was fire-and-forget (GSAP tweens don't return promises unless awaited via `onComplete`), so `optimize()`/`randomBalance()` were already showing the "who's on what team" announce ticker (#31) *while* the Flip stagger animation was still visibly moving cards into place — confirmed via Playwright by tracking each row's `transform` over time alongside the ticker's first-appearance timestamp, which showed clear overlap. Wrapped `Flip.from()` in a promise resolved by `onComplete` so callers now correctly await full settle before the recap starts — matches the explicitly requested "compute → cards fly into place → then announce" three-act sequence rather than two things competing for attention at once.
+37. **Slowed the bulk optimize/random-balance pacing from ~0.05s to 0.4s per player** (`runWithFlip`'s `stagger` option) and made the announce ticker's per-message duration a fixed 0.4s instead of an adaptive `4 / messageCount` formula that got faster (down to a 0.32s floor) as the roster grew — explicit feedback that the original pacing was too fast to actually read either the card movement or the ticker text with a full 14-player roster.
+38. **Reworked bulk optimize/random-balance from "Flip-stagger + separate ticker" to "clear then sequential ghost-clone flights, banner synced 1:1 to whichever player is currently landing."** Three explicit, concrete problems with the previous version: (a) *"the team slots already full all [while matchmaking still shows]"* — because a previous run's assignments were still sitting in the slots the whole time, so a re-run's Flip.from() had few/no positions to actually change for players who happened to land on the same team again; (b) *"I cannot see any animation that the player name move from the list to the team slot"* — same root cause, most rows simply weren't moving; (c) *"you should clear all slots when generating"* and *"the player move in team slot only his name show on match making banner right?"* — the fix for both. Changes: `useTeamBuilder.ts` gained `clearUnlockedAssignments()` (unassigns every player who isn't manually locked, leaving locked players' team and lock status untouched — they were never supposed to move) and `setAssignment(id, teamIndex)` (sets one player's slot without the side-effect of `assign()`'s auto-lock, since progressively applying a computed result one player at a time isn't a "user manually locked this" event). `useTeamBalancer.ts`'s `optimize()`/`randomBalance()` were split into `computeOptimize()`/`computeRandomBalance()`, which return the target assignment map *without* applying it — application is now `teams.vue`'s job, one player at a time. New flow in `teams.vue`'s `generateTeams()`: clear unlocked slots -> `matchmaking` phase while the worker computes -> for each mover (in their current waiting-list order), set the banner's `message` to that player's `pickAssignMessage()` line *then* run the exact same `flyPlayerRow()` ghost-clone flight used for manual single assign/unassign, awaited fully before moving to the next player. `TeamAssemblyBanner.vue` was simplified to match: no more internal per-message GSAP timeline cycling through a pre-built array — it just fades in whenever its `message` prop changes, so the banner is always showing exactly the player currently in flight, driven externally rather than running on its own independent clock. `runWithFlip()`/`Flip` are no longer used anywhere in `teams.vue` — every player move, single or bulk, now goes through the same ghost-clone flight. Verified via Playwright by polling waiting/team-slot player counts and the ticker text every 60ms through a full 14-player reshuffle: counts decrement one at a time in lockstep with the ticker naming that exact player, confirming 1:1 sync rather than sampling luck.
+39. **Player cards got three more "premium" effects**, all pure CSS (cheap enough to run on every card in a dense grid, no per-instance JS animation loop): (a) `.avatar-aura` — a blurred `conic-gradient` ring in the tier/accent color, spun slowly behind the avatar (`z-index: -1`) for a "charging energy ring" look, answering the brief's "glowing circular avatar frame featuring lightning or neon aura"; (b) `.holo-sheen` — a slow-drifting multi-hue diagonal gradient at low opacity with `mix-blend-mode: overlay`, the classic holographic-trading-card foil effect, answering "holographic overlays"; (c) `.spark-particles` — three small glowing dots per card, each on its own CSS `@keyframes` drifting upward and fading with a staggered `animation-delay` so they don't move in unison, answering "particle effects." All three are wrapped in `@media (prefers-reduced-motion: no-preference)` same as the rest of the app's ambient motion. Applied to both `PlayerCard.vue` (roster grid) and the `/players/[id]` header for consistency. The already-existing tier badge bevel, carbon-fiber texture, HUD corner brackets, score readout, and radar attributes panel (#28, #29) covered the rest of this same brief's asks — this round only added what was genuinely new.
+40. **Added `make clear-changelog`** — deletes the `changelog:index` KV key outright (`wrangler kv key delete ... --remote`), i.e. every change-log entry, permanently. Deliberately a direct wrangler operation rather than a new PIN-gated API endpoint: whoever can run `make` commands already has full Cloudflare account access (the same person who ran `make setup`/`make deploy`), so routing this through the app's own PIN gate would add a round-trip without adding real security — matches the existing pattern of `change-pin` also using `wrangler secret put` directly rather than an API route. Run once on request against the live namespace (17 real entries from actual usage since deployment, confirmed via `/api/changelog` before and after — `total: 17` → `total: 0`). `make change-pin PIN=123456` already existed from the initial Makefile setup and needed no changes — noted here since it was asked for again, in case it wasn't obvious it was already there.
+41. **Another round of "premium card" polish, per a very detailed brief covering avatar/background/frame/badge/name/score/tags/buttons** — most of the individual asks were already covered by earlier rounds (#28, #29, #39: tier badge bevel, carbon-fiber, HUD corner brackets, avatar aura/halo/particles, score readout, radar panel), so this pass focused on what was genuinely still missing, all as reusable `tailwind.css` component classes so they apply consistently rather than being hand-tuned per component:
+    - `.avatar-halo` — a second, softer/slower-pulsing radial glow layer behind the avatar, distinct from `.avatar-aura`'s tighter rotating ring, for more visual depth.
+    - `.avatar-tilt` — a fixed-angle 3D tilt on card hover (`perspective` + `rotateX/Y`), standing in for the brief's "parallax on hover"; a real pointer-tracked parallax would need a per-card mousemove listener, not worth the cost across a dense grid.
+    - `.scanlines-diagonal` — an angled variant of the existing (horizontal) `.scanlines` used on the changelog terminal, for card backgrounds specifically.
+    - `.holo-grid` — a tight, faint grid-line overlay (14px, masked to fade toward the bottom), layered as its own absolutely-positioned div rather than combined with `.carbon-fiber` on the same element, since both set `background-image` and CSS only keeps one value per element per property (the later class would have silently overridden the earlier one).
+    - `.score-module` — the score readout gained an actual angled-corner carbon-fiber-adjacent frame (small `clip-path` corner cut + neon top border) instead of just being a bare label+number stack.
+    - `.name-underline` / `.role-capsule` — a short glowing gradient bar under the player name, and the role text moved into a bordered/tinted pill instead of plain text.
+    - **Tag chips redesigned**: `tag-colors.ts` gained `tagChipClass()` (a `CHIP_CLASS` map, same literal-strings-for-the-scanner pattern as the existing `BG_CLASS`/`TEXT_CLASS`) producing a translucent tint + matching neon border + matching bright text per kind/level, replacing the old solid-fill pill. `.tag-chip` (CSS) adds a `currentColor`-based shimmer sweep and a hover scale+glow — `currentColor` means the shimmer/glow automatically match whatever hue that specific chip's text color already is, no per-token shadow-color map needed. Explicitly did **not** add any new icons — the existing DB-driven per-tag icon (`DynamicIcon :name="tag.icon"`) is untouched; only the chip's container styling changed.
+    - `.tag-panel` — tags now sit inside their own small angled-corner carbon-fiber sub-container (`CardContent` → a wrapping `div.tag-panel`) instead of loose in the card body, reading as a distinct "operator stats module."
+    - `.btn-neon` — an additive class (not a Button variant replacement) giving Edit/Delete/etc. a glow + slight lift on hover, layered on top of shadcn's own Button styling so focus states and existing variants are unaffected.
+    - Applied to `PlayerCard.vue`, the `/players/[id]` header, and — per the explicit final ask "see if you can make the player list in team builder look align it this" — `teams.vue`'s select-players rows too (HUD corner brackets, carbon-fiber, the metallic tier badge, and the role capsule), though deliberately *without* the full ambient card glow (`Tier.glowClass`) there: 14 simultaneously-glowing rows in a dense 2-column list would be visual overload in a way it isn't for the more spaced-out roster grid — proportionate polish for the information density, not a blanket copy-paste of every card effect.
+42. **Waiting/reserves list (`WaitingList.vue`) switched from a single-column flex list to the same responsive grid as the select-players list** (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`) — 1 column on mobile, 2 from tablet width, 3 on desktop, per explicit correction after an initial pass made it 2-column starting at the base/mobile breakpoint (the immediate follow-up: "should make 2 column only desktop/big tablet only. still 1 column in mobile").
+43. **Two real bugs found from a screenshot of the #41 redesign, both fixed:**
+    - **`.hud-frame`'s top-left corner bracket collided with the thick tier-colored left border** (`Tier.cardBorderClass`) on `PlayerCard.vue` and the team-builder select rows — both anchor to the same corner, and the bracket's `drop-shadow` blur at that small size read as a stray blob rather than a crisp bracket ("why have small circle on top left of the player card?", "seems the top left in player list conflict with the left border color"). Fixed with a new `.hud-frame-right` variant — both brackets on the right edge only, since the left edge already has its own accent — swapped in wherever a left border coexists; left the plain `.hud-frame` (both corners) alone everywhere else, since only these two components have that particular collision.
+    - **`.avatar-aura` and `.avatar-halo` both targeted `::before` on the same avatar element** (both classes were applied together in #39/#41), so one silently overwrote the other's `background`/`animation`/`inset` per CSS's normal cascade — only one glow effect was ever actually rendering, not both layered as intended, which is why the halo read as a disconnected/malformed circle rather than a cohesive ring-plus-glow. Made worse by shadcn's own `Avatar` component already using `::after` internally (a border overlay), so that pseudo-element wasn't free either. Fixed by moving `.avatar-halo` onto a **wrapping `<div>`** around the `Avatar` instead of the avatar itself, giving it its own untaken `::before` — `.avatar-aura` keeps the avatar's `::before`, the component's own `::after` is undisturbed, and now all three genuinely layer instead of two of them fighting over one pseudo-element slot.
+44. **#43's `.hud-frame-right` fix turned out incomplete — a screenshot with DevTools open (styles panel showing the actual computed rules) proved the bracket was *still* rendering top-left in practice.** Root cause was one level deeper than #43 diagnosed: `PlayerCard.vue`'s Card combines `hud-frame-right` (claims `::before`+`::after` for its two brackets) with `scanlines-diagonal` (claimed `::before`) and `holo-sheen` (claimed `::after`) — the exact same "two classes, one pseudo-element slot" bug as #43's avatar fix, just on the card itself instead of the avatar, and easy to miss because `scanlines-diagonal`/`holo-sheen`'s `inset: 0` shorthand doesn't just fail to apply when overridden, it silently *resets* whichever of `top`/`right`/`bottom`/`left` the bracket rule had set, snapping the bracket back to flush against whichever edges happen to resolve to 0 — i.e. exactly the top-left collision #43 thought it had already fixed. Same latent bug existed on the `/players/[id]` header (`hud-frame` + `scanlines-diagonal` + `holo-sheen`) and `TeamAssemblyBanner` (`hud-frame` + `scanlines`). Fixed at the root this time rather than patching around another collision: `.scanlines`, `.scanlines-diagonal`, and `.holo-sheen` were all converted from `::before`/`::after`-based classes into classes meant for a **dedicated sibling overlay `<div>`** (the same pattern `.holo-grid` and `.spark-particles` already used, which is exactly why *those* never had this problem) — each now sets `position: absolute; inset: 0` on itself directly rather than via a pseudo-element, so it always gets its own real box regardless of how many other decoration classes share the host element. `ChangeLogFeed.vue` (the one place `.scanlines` was used *without* `.hud-frame`) needed an explicit `relative` added to its container, since it could no longer rely on `.scanlines` supplying that. Verified this time by reading `getComputedStyle(el, '::before')` directly in Playwright (not just eyeballing a screenshot) to confirm the bracket's `top`/`right`/`border-*`/`background` values are exactly what `.hud-frame-right` alone specifies, with nothing else touching them.
+45. **Roster page (`index.vue`) now sorts players by score, high to low**, per explicit request. Added `sortedPlayers = computed(() => [...players.value].sort((a, b) => b.score - a.score))` rather than mutating `usePlayers()`'s underlying array (keeps the composable's own ordering — API/seed order — untouched for anything else that reads it), and swapped both the roster grid's `v-for` and `exportJson()`'s payload to read from `sortedPlayers` instead of `players`, so the exported JSON matches what's on screen. Mirrors the sort pattern `teams.vue` already used for its own select-players list. Verified via Playwright: extracted all 14 rendered card scores in DOM order and confirmed strictly non-increasing, with zero console errors.
+46. **"Random balance" hung for 5+ minutes (then eventually threw `RangeError: Maximum call stack size exceeded`) once the real roster grew to 16 players — root-caused and fixed in `shared/utils/balance.ts`, not patched around.** `balancedOptions()`'s exhaustive 2-team search was only ever tuned for the ~14-player roster the comments assumed: it enumerates every `(active-group subset) × (teamA subset)` combination and materializes each as a full `BalanceOption` object. At 14 players that's ~252k objects (fine, sub-second); at 16 it's ~2.02M (`C(16,10)×C(10,5)`) — confirmed via a Node benchmark to take several seconds and gigabytes of garbage just to *generate*, which is what actually produced the "5 minutes and still not done" freeze in a browser worker (slower GC, less headroom than the benchmark's Node process); at 18 the same benchmark reliably OOM-crashed the process outright. The eventual stack-overflow error the user saw afterward was a second, independent latent bug lurking in the same function: `randomBalancedOption()`'s `Math.min(...accepted.map(...))` spreads the whole accepted-options array as individual call arguments, which throws once that array has more than V8's argument-count ceiling (tens of thousands) — exactly what a wide tolerance over a ~2M-option pool produces. **Fix, two parts:** (1) added `EXHAUSTIVE_PLAYER_LIMIT = 14` — `optimalOption()`/`randomBalancedOption()` now route to a new `heuristicTwoTeamOption()` above that limit instead of calling `balancedOptions()` at all: a greedy largest-first bin-balance (respecting the 5-per-team cap and locked assignments) followed by `refineTwoTeamSplit()`'s bounded local-search swap pass (same swap-if-it-shrinks-the-gap pattern already proven in `balanceNTeams.ts`'s N-team heuristic) — for `mode: 'random'` this runs ~150 shuffled attempts and pools the near-best like `randomBalancedOption()` already did, for `mode: 'optimize'` it runs once on score-descending order (classic LPT heuristic) — benchmarked at <2ms even at 100 players, vs. the multi-minute/OOM exhaustive path, matching the user's explicit "we should choose the best then OK" — perfect optimality isn't the goal past this size, a fast good split is. (2) replaced the `Math.min(...)` spread with a plain-reduce `minOf()` helper in both the old exhaustive path and the new heuristic path, so neither can stack-overflow regardless of how large the accepted pool gets. Verified: two new Vitest cases (18-player heuristic split finishes in <500ms with diff ≤5 and still respects locks) plus all 24 existing tests still pass; Playwright against a local 16-player roster (2 synthetic players added via the dev API, exercised, then deleted — no prod data touched) confirms "Select all" → "Random" now settles in ~150ms with zero console errors, down from a 5-minute hang.
+47. **Matchmaking banner (`TeamAssemblyBanner.vue`) announcing-phase text now wraps to 2 lines instead of single-line-ellipsis truncating**, per explicit request ("the match making should allow to show 2 lines if the text is longer"). Swapped the `<p>`'s `truncate` class for `line-clamp-2` — verified in Playwright with a deliberately long injected message that it wraps to a real second line (measured ~40px height, i.e. two `text-sm` lines) rather than cutting off with `…` after the first.
+48. **Same banner's panel background was hardcoded `bg-black/50`, unlike every other HUD-styled surface in the app (`PlayerCard`, roster header, etc.) which all sit on shadcn's theme-adaptive `Card` and pick up `bg-card`.** Only visible once light mode was actually checked (per explicit ask, "the matchmaking should also optimize for light mode and dark mode also"): a Playwright screenshot in light mode showed a flat mid-gray smudge — `bg-black/50` composited over the light page background — with washed-out blue text, nothing like the crisp tactical panel it is in dark mode. Fixed by swapping to `bg-card/85`: `--card` is near-black in dark mode (visually unchanged from the old hardcoded black, confirmed via a matching dark-mode screenshot) and white in light mode, so the same class now yields a clean white panel with the neon primary-colored border/glow/text in light mode instead of a gray box. `border-primary/40` and the `shadow-[...var(--primary)]` glow were already theme-token-driven and needed no change.
+49. **New `/tags` page — a full tag-catalog manager, per explicit request ("Can we have a page to edit tag? like change icon, change name, change its attribute?").** The tag CRUD API (`server/api/tags/*`) and `useTags()` composable already existed (built for the per-player tag picker) but had no standalone management UI. The new page groups all tags by kind (positive/warning/neutral) with a search box, and per tag: an inline `TagIconPicker`, an inline-editable label (saved on blur), a kind `Select` (saved immediately), a live `TagBadge` preview, a "N players" usage count (`players.filter(p => tagId in p.tagLevels).length`), and a delete button gated behind a confirm dialog that states the usage count. Reuses `TagCreateInline.vue` for adding new tags. Editing is hidden behind the same unlock-gate pattern as the roster page (`isUnlocked` / "Unlock to edit"). Confirmed by direct question-and-answer with the user: since players store only a tag **id** (`tagLevels: Record<tagId, level>`), renaming a tag or changing its icon/kind updates every player that has it *immediately and automatically* — no migration, no per-player copy to keep in sync. Deleting a tag already cascaded server-side (strips the id from every player's `tagLevels`) before this page existed; the new confirm dialog just surfaces that impact ("removes it from N player(s)") before you commit to it.
+50. **Found and fixed a real, pre-existing bug while building the tags page: after a full page reload, "Unlocked to edit" silently reverted to locked even though the PIN was still valid (within its 15-minute window).** Root cause in `useCrudGate.ts`'s `refreshCrudTokenState()` — it called plain `$fetch('/api/auth/me')` instead of the `import.meta.server ? useRequestFetch() : $fetch` pattern that `usePlayers.ts`/`useTags.ts` already use for their own reads. On a full reload, Nuxt SSRs the page again and `app.vue`'s `callOnce('crud-token-check', refreshCrudTokenState)` runs this check *server-side*; plain `$fetch` does not forward the incoming request's session cookie to that internal call, so it always saw "no token," baked a false-locked `expiresAt: null` into the SSR payload, and — since `callOnce` only runs once per app instance — nothing ever re-checked it client-side afterward. Fixed by adopting the same `useRequestFetch()`-on-server pattern. Verified in Playwright: unlock → full `page.reload()` → the "Unlock to edit" button and "Add player" button states now correctly reflect the still-valid token, instead of the button reappearing every time.
+51. **Also found and fixed a second real, pre-existing bug, this one more serious: clicking "Delete" in ANY confirm dialog built on `AlertDialogAction` (roster page's delete-player flow, and the new tags page's delete-tag flow) closed the dialog and showed a success toast, but never actually sent the DELETE request — the player/tag silently remained.** Confirmed via Playwright with network-request logging: zero `DELETE` requests fired on click, and a `console.log` inside the handler showed the target ref (`deletingPlayer`/`deletingTag`) was already `null` by the time the handler body ran. Root cause: `AlertDialogAction`'s click both fires the page's own `@click` handler *and* closes the dialog in the same synchronous event; the dialog's `@update:open="(v) => { if (!v) target.value = null }"` handler nulls the target ref before (or in the same tick as) the delete handler reads `target.value`, so it always hit the `if (!target.value) return` guard and quietly no-op'd. Fixed in both `index.vue` and `tags.vue` by capturing the target into a **plain (non-reactive) module-scope variable** at the moment the delete is requested (`deleteTarget = player` alongside `deletingPlayer.value = player`) — the confirm handler now reads from that plain variable, which the dialog's open/close reactivity never touches, instead of re-reading the ref that gets raced. Verified in Playwright for both flows: created a throwaway player/tag, deleted it through the real confirm-dialog UI, and confirmed via a direct server fetch afterward that it was actually gone (previously it wasn't, on the unpatched code, for either flow).
+52. **`TagIconPicker.vue` switched from a 71-icon hand-curated list to the full Lucide catalog (~1993 icons), per explicit request ("do you add full icon list of lucide? I see only a little icon list only")**, used for both creating a tag (`TagCreateInline.vue`) and editing an existing one's icon (the new `/tags` page) since both reuse this same component. `app/lib/icons.ts` gained `ALL_TAG_ICONS`: `@lucide/vue` re-exports every icon under 3 naming conventions (`Foo`, `FooIcon`, `LucideFoo`) plus a few non-icon utility exports — filtered down to exactly one canonical bare-PascalCase name per icon (matches the existing KV storage convention, e.g. `"Crosshair"`, not `"CrosshairIcon"`) via `/^[A-Z][a-zA-Z0-9]*$/.test(name) && !name.startsWith('Lucide') && !name.endsWith('Icon')`. First pass just swapped the v-for source from the curated array to the full one and left shadcn's `CommandInput`/`CommandItem` as-is — Playwright caught that this mounted all ~2000 `CommandItem`s into the DOM on every popover open (Command's own filtering is a `v-if` per item, which still requires mounting everything once first), costing a consistent ~1.3s stall per open. Fixed by not using `CommandInput` at all: `TagIconPicker.vue` now keeps its own local `query` ref and computes an already-filtered-and-capped (`MAX_RESULTS = 60`) array for the `v-for`, so at most `MAX_RESULTS` `CommandItem`s ever mount regardless of catalog size (~100ms open at the initial cap of 60, confirmed in Playwright, down from ~1300ms uncapped). The search box itself uses reka-ui's `ListboxFilter` primitive directly (bound to the local `query` ref, not Command's shared `filterState.search`) rather than the `CommandInput` wrapper — necessary because `CommandInput` hardcodes its `v-model` to Command's internal shared search state, which this component intentionally bypasses; using `ListboxFilter` directly instead of a plain `<input>` was itself a second fix within this same change, since a first attempt with a plain input silently broke arrow-key/Enter keyboard navigation (confirmed via Playwright: `ArrowDown` highlighted nothing) — `ListboxFilter` owns that keyboard-nav wiring internally, independent of what it's bound to, so swapping the v-model target doesn't affect it. Shows "Showing N of M — keep typing to narrow" when the catalog has more matches than the cap. Raised `MAX_RESULTS` from 60 → 300 per explicit follow-up request ("please show up to 300 matches") — reverified in Playwright at 300: ~260ms open (still well under the old ~1300ms uncapped cost) and keyboard nav still intact.
+
+## 3. Data model (Cloudflare KV)
+
+| Key | Value | Notes |
+|---|---|---|
+| `roster:index` | `Player[]` (no photo bytes) | Read on every page load. |
+| `player-photo:<id>` | base64 data URL string | Own key per player. Fetched lazily via `GET /api/players/:id/photo`. Client resizes/compresses to ~256px before upload. |
+| `tags` | `Tag[]` catalog | Seeded from the reference app's `SKILLS` set on first read if empty. Full CRUD. |
+| `changelog:index` | `ChangeLogEntry[]` | Append-only feed, newest first; see §9. |
+| `throttle:<ip>` | `{ attempts, blockedUntil }` | PIN brute-force tracking, self-expiring via KV TTL. |
+
+```ts
+type Player = {
+  id: string                       // crypto.randomUUID() for new players; reference slugs for seed players
+  name: string
+  score: number                    // 0–120, the master ranking number (Quang's call)
+  role: Role                       // single-select, see canonical list below
+  tagLevels: Record<string, number> // tagId -> level, 1–5 (drives badge color intensity only, never shown as a number)
+  hasPhoto: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+type Role = 'igl' | 'entry' | 'awper' | 'lurker' | 'support' | 'anchor' | 'rifler' | 'rotator' | 'flex'
+
+type Tag = {
+  id: string
+  label: string
+  icon: string                     // Lucide icon name, e.g. "Crosshair"
+  kind: 'positive' | 'warning' | 'neutral'
+  createdAt: string
+}
+
+type ChangeLogEntry = {
+  id: string
+  at: string                       // ISO timestamp
+  ip: string
+  playerId: string
+  playerName: string               // denormalized so the log reads fine even if the player is later deleted
+  field: 'score' | 'tagLevel' | 'tagAdded' | 'tagRemoved' | 'role' | 'name' | 'photo' | 'created' | 'deleted'
+  from?: string | number
+  to?: string | number
+  message: string                  // pre-rendered from the template pool, see §9
+}
+```
+
+No optimistic concurrency / versioning in v1 (plain read-modify-write) — acceptable for a small, low-concurrency friend group.
+
+**Seed tag → icon mapping** (starting point, editable later via the picker): `aim → Crosshair`, `rifle → Target`, `awp → Telescope`, `defense → Shield`, `attack → Swords`, `tactics → Brain`, `setup → Puzzle`, `clutch → Flame`, `teamwork → Users`, `entry → DoorOpen`, `sacrifice → HeartHandshake`, `mentalRisk → AlertTriangle`, `inconsistent → TrendingDown`, `teamFlash → EyeOff`, `pc → Monitor` — remaining reference skills mapped similarly during implementation. Every tag also carries a **level 1–5** per player (§2 #9), picked by clicking one of 5 color swatches in the player edit dialog (not a slider, not a number field — the swatch *is* the picker, so what you click is exactly what you'll see on the badge).
+
+**How level affects color** (this is the actual rule, revised from the first draft): the badge's **hue family comes from `kind`** (`positive` / `warning` / `neutral`) and never changes with level — a `warning` tag like *team-flash* stays in the warning (amber/red) family whether it happens rarely or often; it doesn't turn "calm gray" just because the level is low. **Level (1–5) selects a shade within that hue family** — level 1 is the palest/most desaturated shade, level 5 the deepest/most saturated — the same idea as a Tailwind `red-50 → red-950` ramp, but implemented as **5 custom OKLCH tokens per kind** (`--tag-positive-1..5`, `--tag-warning-1..5`, `--tag-neutral-1..5`) defined once in `:root`/`.dark` alongside the rest of the theme, rather than literal `bg-red-50`…`bg-red-950` utility classes. That distinction matters for two reasons: (a) the skill's "no manual `dark:` overrides" rule — literal Tailwind shade classes would need hand-written `dark:` variants to still look right in dark mode, a 5-token-per-kind OKLCH scale adapts automatically like every other theme color; (b) it keeps the palette closed at 15 fixed shades (3 kinds × 5 levels) instead of reaching for arbitrary raw colors. **No number is shown on the badge** — icon + label only, color is the only level signal. (The earlier idea of a level 9–10 "elite" gold ring on the badge is dropped along with the 1–10 scale — the *player*-level gold S-tier badge in §8 stays, just not mirrored onto individual tags.)
+
+**Canonical roles** (single-select per player, replacing the reference app's ad-hoc list; each shown with its description as a tooltip, per CS2 convention):
+
+| Role | Description |
+|---|---|
+| In-Game Leader (IGL) | Guides the team with strategies and mid-round adjustments. |
+| Entry Fragger | Pushes aggressively to break through defenses and secure early kills. |
+| AWPer | Controls long angles with the sniper rifle, secures crucial kills when it matters most. |
+| Lurker | Operates solo to gather information, apply pressure, and flank enemies. |
+| Support | Uses utility to create openings and assist teammates. |
+| Anchor | Holds a bombsite alone under pressure — the last line of defense on that site. |
+| Rifler | Core all-around rifle duelist; the default when nothing more specific fits. |
+| Rotator | Reads round info and rotates between sites to reinforce as needed. |
+| Flex | No fixed identity — plays whatever the round calls for. |
+
+**Expanded tag catalog** — beyond the reference app's original 24 skill tags, worth seeding as a stronger starting set (all still fully create/edit/delete-able afterward, so this isn't a hard cap):
+
+*Weapon & combat* (`positive`): Pistol Round Ace, One-Tap Threat, Spray Control, Wallbang Sense.
+*Utility, more specific than the generic "utility" tag* (`positive`): Smoke Lineups, Molotov/Incendiary Control, Flash Assist, HE Damage.
+*Tactics* (`positive` unless noted): Mid-Round Adjustments, Retake Specialist, Post-Plant Positioning, Anti-Eco Discipline, Space Creator, Trade Fragger.
+*Game sense & mechanics* (`positive`): Game Sense, Sound Reading (footstep/audio awareness — distinct from the existing "listens to calls" tag), Crosshair Placement, Movement/Bhop, Peeker's Advantage.
+*Team culture — positive*: Hype Teammate, Tilt-Proof, Warm-Up Discipline, Reliable Attendance.
+*Team culture — warning*: Rage-Prone (distinct from the existing "affected by pressure" tag), Baiter, Toxic Comms, Flaky Attendance, Save-Round Hero, Ghosts Calls.
+*Neutral*: Unstable Connection (`warning` — it's a connection issue, not a skill one), Good Mic Setup (`neutral`).
+*Fun titles* (still just `Tag` rows, `positive` unless noted — the "Clutch Kings" idea folds into the same system rather than a new one): Clutch King/Queen, Ace Machine, The Wall, Human Aimbot, One-Tap God, Nade King, Silent Assassin, The Cleaner, Glue Guy, Eco Warrior, Boost Buddy, Rage Quitter (`warning` — a joke tag, not a real complaint).
+
+## 4. Color & density
+
+- **Primary accent: green.** Positive, "go", matches shadcn's own friendly-neutral convention and reads well as the brand/CTA color.
+- **Team colors: Team 1 (green, reuses primary/`--chart-1`) vs Team 2 (red/`--chart-2`)** — a deliberate use of both colors the user likes, one per side, rather than picking a single winner. Sessions with more teams extend through `--chart-3..5` (shadcn's standard 5-color chart set); beyond 5 teams, colors cycle — always paired with the team's number/name label in the UI, never relying on color alone to distinguish teams past that point.
+- `--chart-2`'s red is a distinct shade from `--destructive`, so a Team 2 badge is never visually confused with a delete/error affordance.
+- Background stays dark-first (`prefers-color-scheme`/`.dark` default), close to the "Dense Dashboard" pattern: near-black background, high-contrast foreground, minimal chrome around data.
+- **Compact/dense spacing** ("like shadcn-vue.com"): favor `gap-2`/`gap-3`, `p-3`/`p-4` over the larger paddings a marketing page would use; base text `text-sm` in data-dense areas (roster grid, tables, change log) and reserve larger type for page titles only.
+- Exact OKLCH values are generated by `shadcn-vue init` with a green base color, then `--chart-1..4` added by hand per the pattern in the skill's `customization.md` — not hand-picked hex now.
+
+## 5. Pages & navigation
+
+Moves from a single-page app to real Nuxt routes:
+
+| Route | Purpose |
+|---|---|
+| `/` | **Roster grid** — browse/manage player profiles as cards (photo/avatar, score, S/A/B/C/D tier badge + border accent, tag badges with levels). Add/edit/delete players are hidden until unlocked (§4, decisions log #22). |
+| `/players/[id]` | **Player detail** — full profile: large photo, score-over-time line/area chart (derived from the change log), horizontal bar chart of tag levels, this player's slice of the change log. Room to add more stats later. |
+| `/teams` | **Team builder** — the reference app's core loop: select players, assign/randomize into teams (2 by default, any validated count — §6), lock/unassign, tolerance, metrics. Client-only state. |
+| `/tags` | **Tag catalog** (added, decisions log #49) — manage the shared tag catalog directly: rename, re-icon, re-categorize (positive/warning/neutral), see each tag's usage count across the roster, delete (cascades off every player), create new. Add/edit/delete hidden until unlocked, same gate as the roster. |
+| `/changelog` | **Change log** — global feed, everyone can view, IP + timestamp + what changed, generated flavor text. Its own page (not on the dashboard by default) satisfies "can hide" — you only see it if you go looking. |
+
+`layouts/default.vue` carries a slim top nav (app name, the four routes as compact ghost-button links, an `UnlockIndicator` + `ModeToggle` on the right) — no sidebar, matching the dense/compact direction. Every route renders for every visitor unconditionally (see decisions log #4) — there's no page-level auth gate; `CrudPinDialog.vue` is mounted once in `app.vue` and pops up only when a mutating action actually needs the PIN.
+
+## 6. Team count (default 2, user-chosen, validated)
+
+Default flow is unchanged from the reference app: **2 teams**. The "Team count" control on `/teams` is a plain number input (not a fixed 2/3/4 picker) — low-emphasis, since most sessions never touch it.
+
+**Validation** (this is the actual rule the count must satisfy, checked live as the user types and before Optimize/Random-balance can run):
+- `teamCount >= 2` — one "team" isn't a split.
+- `teamCount <= selectedPlayers.length` — every team needs at least one person; if not enough players are selected yet, show inline: *"Select at least {teamCount} players to form {teamCount} teams (currently {selected})."* and disable the balance actions.
+- Soft, non-blocking note (not an error) if the resulting average team size exceeds 5 — CS2's standard competitive size — since a friend group might genuinely want bigger casual teams; it's a heads-up, not a wall.
+
+**Algorithm** scales by count, not by a hardcoded cap:
+- **2 teams**: the reference app's exact algorithm — exhaustive combinations + role-penalty tie-break (`shared/utils/balance.ts`, ported as-is).
+- **N > 2 teams** (any N, not just 3–4): exhaustive combinations become impractical well before 2-team sizes do, so use a **greedy-then-improve heuristic**: sort unlocked players by score descending, snake-draft them across the N teams (1→2→3→…→N→N→…→1), place locked players first into their fixed team, then run a bounded local-search pass — repeatedly try swapping one player between the two most-imbalanced teams if it reduces the max−min score spread, stopping when no swap helps or an iteration cap is hit. Same tolerance/locking rules as the 2-team case, and it scales to whatever N is entered (10 players into 5 pairs works the same way as 20 into 4 fives).
+- Team panels (`TeamPanel.vue`) render in a responsive auto-fit grid (`repeat(auto-fit, minmax(220px, 1fr))`-style layout), not a hardcoded two-column split, so any team count wraps sensibly.
+
+## 7. Confirmations
+
+- **Delete** (player, tag, photo) → shadcn `AlertDialog`, standard destructive-confirm pattern. (Reset-to-seed was removed entirely — decisions log #25 — so it no longer needs a confirm dialog.)
+- **Create/Edit** → the `PlayerEditDialog`/`TagCreateInline` form's own "Save" button is the confirm step; no second "are you sure" layered on top (see decisions log #12 — flag if a literal double-confirm was actually wanted).
+
+## 8. Tier system + GSAP
+
+**Superseded the original top-5 gold-ring highlight** (decisions log #22) with a score-based **S/A/B/C/D tier system**, computed live from `score` (not a fixed/manual flag, not top-N — every player always has exactly one tier):
+
+| Tier | Score | Color | Icon |
+|---|---|---|---|
+| S | 90+ | Gold (`--elite`) | Crown |
+| A | 75+ | Orange (`--tier-a`) | Star |
+| B | 55+ | Yellow (`--tier-b`) | Minus |
+| C | 40+ | Green (`--tier-c`) | TrendingDown |
+| D | 0+ | Blue (`--tier-d`) | AlertTriangle |
+
+Defined once in `app/lib/tier.ts` (`getTier(score)`), rendered as (a) a small icon+letter badge next to the score and (b) a `border-l-4` colored left-accent stripe on the card — deliberately not a ring around the whole card (rejected as looking "cheap" per explicit feedback). Appears on `PlayerCard` and the `/players/[id]` header; `TeamPanel`/`WaitingList` rows stay plain (score only) since a five-color badge per row was assessed as too noisy at that density.
+
+**GSAP integration** (per the `gsap-frameworks`/`gsap-plugins` skills):
+- A `useGSAP()` Nuxt composable registers `Flip` (and lazy-loads anything used in just one place), following the skill's typed lazy-plugin pattern.
+- Every component that animates uses `gsap.context(() => {...}, containerRef)` in `onMounted`, and calls `ctx.revert()` in `onUnmounted` — no global/unscoped selectors. `prefersReducedMotion()` short-circuits every animation block.
+- **Entrance stagger**, one per page, scoped to that page's own container: `.player-card` on `/` roster grid, `.select-row` (player-selection checkboxes) on `/teams`, `.detail-block` (profile/charts/changelog cards) on `/players/[id]`, `.changelog-row` on `/changelog` (fires on the async transition from empty→populated, not on mount, since entries load after an API call).
+- **Team assignment movement**: on `/teams`, when a player moves from the waiting list to a team panel (or between panels), capture `Flip.getState(...)` on the relevant cards *before* the reactive array mutates, apply the mutation, `await nextTick()`, then `Flip.from(state, { duration, ease: 'power2.inOut', stagger: { each, from: 'random' } })`. `assign`/`unassign` (single player) use the plain 0.45s/no-stagger default; `optimize`/`randomBalance` (many players reshuffle at once) use a longer duration (0.55–0.6s) and a `from: 'random'` stagger so players visibly arrive one-by-one instead of the whole grid snapping into its new layout in one frame — the snap read as "the page froze" before this change.
+
+## 9. Change log
+
+Every mutation to a player profile writes an entry to `changelog:index` (§3), visible to any authenticated user at `/changelog` and filtered onto `/players/[id]`. Each entry captures **who** (IP), **when**, **what field**, **old → new value**, and a **generated message** so the feed reads as a narrative rather than a diff.
+
+Messages are picked (pseudo-randomly, or round-robin to avoid immediate repeats) from a per-category template pool — mixing genuinely funny and genuinely serious/matter-of-fact tones so the log has personality without being silly 100% of the time. Categories and counts:
+
+| Category | Trigger | Templates |
+|---|---|---|
+| `SCORE_UP` | score increased | 20 |
+| `SCORE_DOWN` | score decreased | 20 |
+| `TAG_LEVEL_UP` | a tag's level increased | 12 |
+| `TAG_LEVEL_DOWN` | a tag's level decreased | 10 |
+| `TAG_ADDED` | new tag applied to a player | 16 |
+| `TAG_REMOVED` | tag removed from a player | 12 |
+| `PLAYER_CREATED` | new player added | 12 |
+| `PLAYER_DELETED` | player removed | 8 |
+| `ROLE_CHANGED` | primary role changed | 8 |
+| `PHOTO_CHANGED` | photo uploaded/replaced | 8 |
+| `NAME_CHANGED` | display name edited | 6 |
+
+**132 templates total** — comfortably past "at least 20." Full text is in the appendix (§A) so it can be copy-pasted straight into `server/utils/changelog-messages.ts` during implementation.
+
+## 10. Charts
+
+- `/` roster grid: no chart — each card's own tier badge/border (§8) replaced the earlier leaderboard bar chart (decisions log #22) as the at-a-glance ranking signal.
+- `/players/[id]`: **line/area chart** of this player's `score` over time (built from their `SCORE_UP`/`SCORE_DOWN` change-log entries), plus an **"Attributes" panel** combining a hand-built inline-SVG **radar chart** (tags as axes, level 1–5 as radius — shadcn-vue's chart set still doesn't ship radar, so this is custom, not Unovis-based) with a horizontal **bar chart** underneath for the actual per-tag numbers (the one place the number is shown, since a chart needs an axis). See decisions log #28.
+
+## 11. Tech stack
+
+- **Nuxt 4** + Vue 3 + TypeScript, **pnpm**.
+- **shadcn-vue**, scaffolded via its own CLI (per the installed `shadcn-vue` skill): `npx shadcn-vue@latest init --template nuxt --preset nova` with a green base color — wires Tailwind v4, `components.json`, aliases, and the theme-token CSS file in one step.
+  - Components added on demand: `button card input label select checkbox dialog alert-dialog badge sonner dropdown-menu popover command separator tooltip skeleton switch field input-otp toggle-group avatar empty slider chart-bar chart-line chart-area`.
+  - Skill rules followed throughout: `class` for layout only, semantic color tokens, `FieldGroup`/`Field` for forms, items always inside their Group component, `vue-sonner` for toasts, icons via `data-icon`.
+- **Dark mode**: `@nuxtjs/color-mode`, default dark, `ModeToggle.vue`.
+- **Typography**: `Orbitron` (display/headings), `Rajdhani` (body/UI), `Share Tech Mono` (data/terminal) — Google Fonts, loaded via `@import` in `tailwind.css`. See decisions log #28.
+- **Animation**: **GSAP** (`gsap`, `Flip` plugin) — see §8.
+- **Backend**: Nitro on Cloudflare Workers, plain `wrangler` (decisions log #5).
+  - `nitro.preset = "cloudflare_module"`.
+  - KV via Nitro's storage layer — `cloudflare-kv-binding` driver mounted as `useStorage('kv')` — local dev works against an fs/in-memory fallback, no Cloudflare account needed day-to-day.
+  - `wrangler.toml`: `kv_namespaces` binding, `routes` entry for the custom domain, `compatibility_date`.
+- **Validation**: `zod` for all API request bodies; shared types in `shared/types.ts`.
+- **Testing**: Vitest for the 2-team and N-team balancing algorithms.
+
+## 12. Project structure
+
+```
+nuxt.config.ts                  # nitro preset, storage/kv mount, color-mode, css
+wrangler.toml                   # kv_namespaces, routes (custom domain), compatibility_date
+Makefile                        # deploy, change-pin, dev, build
+.env.example                    # NUXT_APP_PIN, NUXT_SESSION_PASSWORD
+app.vue                         # loads roster/tags + CRUD-token state, mounts CrudPinDialog
+layouts/
+  default.vue                   # compact top nav + UnlockIndicator + ModeToggle
+pages/
+  index.vue                     # roster grid, CRUD hidden until unlocked
+  players/[id].vue              # player detail: chart + tag levels + change log slice
+  teams.vue                     # team builder (client-only)
+  changelog.vue                 # global change log feed
+components/
+  ui/                           # shadcn-vue generated primitives
+  CrudPinDialog.vue              # modal PIN prompt, opened on demand by requireCrudToken()
+  UnlockIndicator.vue            # nav "Locked" / "Unlocked Xm:Ss" badge, click to unlock/lock
+  ModeToggle.vue
+  players/
+    PlayerCard.vue               # incl. tier badge + border accent
+    PlayerRadarChart.vue         # inline-SVG radar chart, player attributes panel
+    PlayerEditDialog.vue         # name, score, role, tag+level picker, photo upload
+    TagCreateInline.vue          # new tag: label + icon + kind
+    TagIconPicker.vue            # Popover + Command, searchable curated Lucide set
+    PlayerPhotoUpload.vue        # file input -> canvas resize/compress -> base64
+    PlayerScoreChart.vue         # line/area, score over time
+    PlayerSkillChart.vue         # horizontal bar, tag levels
+  teams/
+    TeamCountControl.vue         # low-emphasis number input, default 2, validated against selected player count
+    MetricsBar.vue
+    TeamPanel.vue                # dynamic x N teams, Flip-animated moves
+    WaitingList.vue
+    ToleranceControl.vue
+  changelog/
+    ChangeLogFeed.vue
+    ChangeLogEntryRow.vue
+composables/
+  usePlayers.ts                  # roster CRUD via API
+  useTags.ts                     # tag catalog CRUD via API
+  useChangeLog.ts                # fetch global/per-player log
+  useTeamBuilder.ts              # client-only: selection/assignment/locks/tolerance/team count, localStorage-persisted
+  useTeamBalancer.ts             # wraps shared/utils/balance.ts (2-team + N-team) against players + useTeamBuilder state
+  useGSAP.ts                     # registers/lazy-loads GSAP plugins (Flip), per gsap-frameworks skill
+  useCrudGate.ts                 # CRUD-token state, requireCrudToken()/ensureCrudToken(), CrudCancelledError
+server/
+  api/
+    auth/login.post.ts           # PIN check + rate limit -> issues a 15-min CRUD token on success
+    auth/logout.post.ts          # clears the token ("lock now")
+    auth/me.get.ts                # GET, always public — reports whether this session holds a live token
+    players/index.get.ts         # lazy-seeds DEFAULT_PLAYERS if roster:index empty
+    players/index.post.ts        # create player -> changelog entry
+    players/[id].patch.ts        # update -> diff fields -> changelog entries
+    players/[id].delete.ts       # -> changelog entry
+    players/[id]/photo.get.ts
+    players/[id]/photo.put.ts    # -> changelog entry
+    tags/index.get.ts            # lazy-seeds from reference SKILLS if empty
+    tags/index.post.ts
+    tags/[id].patch.ts
+    tags/[id].delete.ts
+    changelog/index.get.ts       # paginated global feed
+  middleware/auth.ts              # only checks non-GET /api/* requests for a live CRUD token; reads pass straight through
+  utils/kv.ts                    # typed get/set helpers over useStorage('kv')
+  utils/session.ts               # session config, hasValidCrudToken(), CRUD_TOKEN_TTL_MS, getClientIp()
+  utils/changelog.ts              # appendEntry(field, from, to, ip) -> picks a template, writes entry
+  utils/changelog-messages.ts    # the 132 templates from §A
+  utils/seed-data.ts             # migrated roster + tag catalog, see decisions log #17
+shared/
+  types.ts                       # Player, Tag, ChangeLogEntry
+  utils/balance.ts                # combinations, rolePenalty, scoreOf, desiredTeamSizes, balancedOptions (2-team)
+  utils/balanceNTeams.ts          # snake-draft + local-search swap heuristic (any N > 2)
+  utils/balance.test.ts
+```
+
+## 13. Makefile
+
+```makefile
+PM ?= pnpm
+WORKER_NAME ?= cs2-friend-equalizer
+
+dev:        ## local dev (KV falls back to fs, no Cloudflare account needed)
+build:      ## $(PM) run build
+deploy:     ## $(PM) run build && wrangler deploy
+change-pin: ## make change-pin PIN=123456 -- validates 6 digits, then wrangler secret put + updates .env
+```
+
+`NUXT_SESSION_PASSWORD` is set once during initial setup (not part of the PIN-rotation flow).
+
+## 14. Deployment / domain
+
+**Status: deployed and live** at `https://csgo2.doxanh.dev` (Worker `cs2-friend-equalizer`, account "Do Huy Hung"). `wrangler.toml`'s `routes` entry attached the custom domain automatically on first deploy — `doxanh.dev` was already an active zone on this account, so no manual dashboard step was needed.
+
+**Provisioning** (`make setup`, one-time): creates the `CS2_KV` namespace (id `a22126ce0f3a4fd59ffcd54eb62b3102`, already in `wrangler.toml`) and pushes `NUXT_APP_PIN`/`NUXT_SESSION_PASSWORD` from the local `.env` as Worker secrets. Re-running `make setup` skips namespace creation once the placeholder id is gone and just re-pushes secrets (safe to repeat).
+
+**Deploy** (`make deploy`): builds, then `wrangler deploy --config .output/server/wrangler.json`. Notes from getting this working:
+- `nitro.cloudflare = { nodeCompat: true, deployConfig: true }` in `nuxt.config.ts` is required, otherwise the build warns "Node.js compatibility is not enabled."
+- `pnpm run build` reads the root `wrangler.toml` (for `name`, `kv_namespaces`, `routes`, `compatibility_flags`) and generates a build-ready config at `.output/server/wrangler.json` with `main`/`assets` resolved relative to `.output/server` — the root file's `main`/`[assets]` values are recomputed, not used verbatim (Nitro warns about this; harmless). The actual deploy target is that generated file, not the plain `wrangler deploy` shorthand Nitro's build log suggests (its implied `--cwd .output` doesn't find the config, which lives one level deeper).
+- `wrangler secret put <NAME> --config wrangler.toml` (the root file) works fine for secrets without needing a build first — that's what `make change-pin` and `make setup` use.
+- **Transient post-deploy errors observed**: immediately after the first deploy, `/api/auth/me` returned 500 and `/api/players` returned a Cloudflare 1101 (Worker threw an exception) on the very first couple of requests, then resolved to correct 401/200 responses within ~15 seconds with no code changes. Read as edge propagation lag for secrets/bindings right after deploy, not a real bug — but worth a quick re-check after any future deploy before assuming something's broken.
+- **Caveat from earlier in the build**: this machine already had `wrangler` authenticated before this session: a config-validation attempt (`wrangler secret put`) unexpectedly created the real Worker and its first secret before deployment was actually requested. Flagged to the user at the time; they confirmed the account was intentional and asked to proceed with full setup + deploy, which is what §14 now documents.
+
+## 15. Implementation order
+
+1. Scaffold via `shadcn-vue init --template nuxt --preset nova` (green base color); verify with `shadcn-vue info`.
+2. Dark mode module + `ModeToggle`; `layouts/default.vue` nav shell.
+3. `nuxt.config.ts` Cloudflare/KV wiring + `wrangler.toml`.
+4. `shared/types.ts` + port `balance.ts` (2-team) and write `balanceNTeams.ts` (3-4 team), both with Vitest coverage first.
+5. Auth: session middleware, rate-limited login route, `LoginGate`, `auth.global.ts` — later revised to the public-read/PIN-gated-write model in decisions log #4 (`CrudPinDialog`, `useCrudGate.ts`, `UnlockIndicator`, no more page-level gate).
+6. Players + photo + tags APIs (lazy seed) → composables. Wire `server/utils/changelog.ts` into every mutating route.
+7. `changelog-messages.ts` (paste in §A content) + `changelog/index.get.ts` + `ChangeLogFeed`/`ChangeLogEntryRow`.
+8. `useTeamBuilder` + `useTeamBalancer` (client-only).
+9. Pages: `/` (grid + leaderboard chart, later replaced by tier badges — decisions log #22) → `/players/[id]` (detail + charts + log slice) → `/teams` (builder) → `/changelog`.
+10. GSAP: `useGSAP.ts`, roster entrance stagger, Flip on team assignment, top-5 glow/shimmer (top-5 glow later replaced by the tier system, entrance stagger later extended to every page — decisions log #22, #24).
+11. Export JSON, Reset (`AlertDialog`). (Import was later removed — see decisions log #18: restoring the whole roster from an arbitrary file is riskier than any single edit, so it isn't exposed at all rather than just PIN-gated. Reset was later also removed entirely — decisions log #25.)
+12. Makefile + `wrangler.toml` finalized, `.env.example`, first deploy, attach custom domain.
+
+## 16. Verification plan
+
+- `pnpm vitest run` — 2-team algorithm (even/odd, >10 reserves, locks, tolerance pool) and N-team heuristic (balance quality at several N values, locks respected, degenerate N e.g. N == selectedPlayers.length).
+- Manual golden path, **starting with zero cookies** (confirms reads are truly public): browse `/`, a player detail, `/teams`, and `/changelog` with no PIN entered anywhere — all four render fully, and no Add player/Edit/Delete button is visible anywhere (hidden-until-unlocked, decisions log #22; Reset no longer exists at all — #25). Click "Unlock to edit" → the PIN dialog appears, correctly centered with a mobile gutter at any viewport width (#26); cancel it → nothing happens, no error toast (`CrudCancelledError` swallowed silently). Re-open, enter the correct PIN → nav indicator flips to "Unlocked 14:59" and counts down, the roster toolbar switches to Add player, and every `PlayerCard` grows its Edit/Delete footer. Enter 5 wrong PINs → 429 lockout. While unlocked: edit score/tags/levels (confirm no second PIN prompt appears mid-edit) → change-log entry appears with varied phrasing in the terminal-styled feed and the edited player's tier badge/border updates live if the score crossed a tier boundary; create/delete a tag and a player (confirm dialogs on delete); upload a photo (or confirm the default `/default-avatar.png` shows for anyone without one). On `/teams`: select players (2-column card list on mobile, tier badge + role visible per #27), optimize/random-balance at default 2 teams, then a higher count — confirm the Flip movement is visibly staggered (players arrive one-by-one, not a single-frame snap) and each team panel shows its own accent color; request more teams than selected players and confirm the validation message blocks it; lock a player, re-randomize, confirm the lock holds; refresh, confirm selection survived (localStorage, still client-only). On a player detail page, confirm the radar chart plots correctly (≥3 tags) and falls back gracefully below that. **Resize to a 375px-wide viewport on every page and confirm zero horizontal scroll** (#26) — nav, dialogs, and team panels were the three real bugs found here. Confirm dark mode default + toggle, and reduced-motion disables all entrance/Flip animation but keeps the app fully usable. (This whole path — plus the tier-badge/border check, the CRUD-unlock reactivity, and the mobile-viewport overflow checks — was verified end-to-end via headless-Chromium/Playwright against both the dev server and the deployed `csgo2.doxanh.dev`, not just by reading the code; see decisions log #23 for a bug that inspection alone would have missed.)
+- `wrangler deploy` to a `*.workers.dev` URL first, then attach the `csgo2.doxanh.dev` custom domain.
+
+## 17. Open assumptions (flag if wrong)
+
+- `doxanh.dev` is already a Cloudflare zone on the account this gets deployed to.
+- No accounts/roles needed — one shared PIN for everyone, gating writes only, is intentional (decisions log #4).
+- Change log (and everything else) is visible to any visitor, no PIN needed to view — only to edit (no per-player privacy/opt-out).
+- Delete confirms via `AlertDialog`; create/edit do not get a second nested "are you sure" (§7) — say so if that's wrong.
+
+---
+
+## Appendix A — Change log message templates
+
+Placeholders: `{name}` player name, `{old}`/`{new}` values, `{delta}` = |new − old|, `{tag}` tag label, `{oldLevel}`/`{newLevel}` (1–5), `{oldName}`/`{newName}`.
+
+### SCORE_UP (20)
+1. {name}'s rating climbs from {old} to {new}. The grind is real.
+2. Someone's been in aim_botz — {name} jumps to {new} (+{delta}).
+3. {name} put in the work: {old} → {new}. Respect.
+4. Scouts are taking notes: {name} is now rated {new}.
+5. {name} quietly improved to {new}. No fanfare needed.
+6. Big week for {name} — score up to {new} (+{delta}).
+7. {name}'s aim isn't an accident anymore. {old} → {new}.
+8. Rating update: {name} now sits at {new}, trending up.
+9. {name} is cooking. New score: {new}.
+10. The numbers don't lie — {name} earned that jump to {new}.
+11. {name} climbed {delta} points. Someone's tryharding.
+12. Officially better than last week: {name} at {new}.
+13. {name}'s consistency is paying off. {old} → {new}.
+14. Watch out for {name} — freshly rated at {new}.
+15. {name} leveled up in real life. Score: {new}.
+16. Small steps, real progress: {name} now at {new}.
+17. {name} earned a promotion. New rating: {new}.
+18. The scoreboard agrees: {name} is on the up, now {new}.
+19. {name}'s form is scary good lately. {old} → {new}.
+20. Rank check: {name} moved up to {new}. Keep it up.
+
+### SCORE_DOWN (20)
+1. {name} slipped from {old} to {new}. Rough patch, happens to everyone.
+2. {name}'s rating dips to {new}. Might be time for aim_botz.
+3. Down to {new} for {name} — the queue has been unkind.
+4. {name} dropped {delta} points. Blame the ping, not the aim.
+5. {name} is rated {new} now. Everyone has an off month.
+6. The numbers took a hit: {name} down to {new}.
+7. {name}'s streak ended — new score {new}.
+8. {name} fell to {new}. Time to review some demos.
+9. Not {name}'s week — rating adjusted down to {new}.
+10. {name} dipped from {old} to {new}. Recovery arc incoming.
+11. The queue humbled {name}: now rated {new}.
+12. {name} is at {new}. Everyone slumps sometimes.
+13. Score correction for {name}: {old} → {new}.
+14. {name}'s rating cooled off to {new}.
+15. Tough stretch for {name}, now sitting at {new}.
+16. {name} lost {delta} points. Redemption arc starts now.
+17. {name} down to {new} — could be worse.
+18. The rating committee adjusted {name} down to {new}.
+19. {name}'s form dipped to {new}. Happens to the best.
+20. New number for {name}: {new}. Onwards and upwards from here.
+
+### TAG_LEVEL_UP (12)
+1. {name}'s {tag} level jumped from {oldLevel} to {newLevel}.
+2. {tag} is looking sharper for {name}: {oldLevel} → {newLevel}.
+3. {name} leveled up {tag} to {newLevel}/5.
+4. Noticeable improvement in {tag} for {name} — now {newLevel}.
+5. {name}'s {tag} rating climbs to {newLevel}.
+6. Put in the reps: {name}'s {tag} is now {newLevel}/5.
+7. {tag} upgrade for {name}: {oldLevel} → {newLevel}.
+8. {name} is getting genuinely good at {tag} — {newLevel}/5 now.
+9. Progress logged: {name}'s {tag} level is {newLevel}.
+10. {name}'s {tag} game stepped up to {newLevel}/5.
+11. Solid growth in {tag} from {name}: now {newLevel}/5.
+12. {name} bumped their {tag} rating to {newLevel}.
+
+### TAG_LEVEL_DOWN (10)
+1. {name}'s {tag} level slipped to {newLevel}/5.
+2. {tag} rating for {name} adjusted down: {oldLevel} → {newLevel}.
+3. {name} is a bit rusty on {tag} lately — now {newLevel}/5.
+4. Reassessed: {name}'s {tag} dropped to {newLevel}.
+5. {name}'s {tag} needs work again — {newLevel}/5.
+6. {tag} level for {name} cooled off to {newLevel}.
+7. {name} lost a step in {tag}: {oldLevel} → {newLevel}.
+8. Time for practice — {name}'s {tag} is down to {newLevel}/5.
+9. {name}'s {tag} rating dipped to {newLevel}.
+10. {tag} downgrade for {name}: now {newLevel}/5.
+
+### TAG_ADDED (16)
+1. {name} picked up the {tag} tag. Skill acknowledged.
+2. New badge unlocked for {name}: {tag}.
+3. {name} is now officially tagged {tag}.
+4. The council has ruled: {name} has {tag}.
+5. {name} earned the {tag} label. About time.
+6. Tagged: {name} now carries {tag}.
+7. {name}'s profile grows — {tag} added.
+8. It's official — {name} has {tag} energy.
+9. {name} added {tag} to the resume.
+10. New skill on file for {name}: {tag}.
+11. {name} showed enough {tag} to earn the tag.
+12. Badge ceremony: {name} receives {tag}.
+13. {name}'s scouting report now includes {tag}.
+14. {tag} added to {name} — noted for future team picks.
+15. {name} leveled up their profile with {tag}.
+16. Fresh tag for {name}: {tag}. Well deserved.
+
+### TAG_REMOVED (12)
+1. {tag} removed from {name}'s profile. Reassessed.
+2. {name} no longer carries the {tag} tag.
+3. The {tag} label didn't hold up — removed from {name}.
+4. {name}'s {tag} tag was retired.
+5. Profile update: {tag} taken off {name}.
+6. {name} outgrew the {tag} tag — removed.
+7. {tag} no longer fits {name}'s playstyle. Removed.
+8. Quiet update: {name} lost the {tag} tag.
+9. {name}'s {tag} badge has been revoked.
+10. Reassessment complete — {tag} removed from {name}.
+11. {name} doesn't need the {tag} label anymore.
+12. {tag} archived from {name}'s profile.
+
+### PLAYER_CREATED (12)
+1. {name} joined the roster. Welcome to the grind.
+2. New face in the squad: {name}.
+3. {name} has entered the server.
+4. The roster grows — say hello to {name}.
+5. {name} added to the roster at {new} points.
+6. Fresh recruit: {name}, starting rating {new}.
+7. {name} is officially part of the crew now.
+8. Roster update: {name} joins in.
+9. {name} pulled up a chair. Let's see what they've got.
+10. New player registered: {name}.
+11. {name} joins the ranks — may their aim be true.
+12. The squad welcomes {name} to the roster.
+
+### PLAYER_DELETED (8)
+1. {name} has left the roster.
+2. {name} was removed from the roster.
+3. Roster update: {name} is no longer listed.
+4. {name} exited the server, for now.
+5. {name}'s profile was archived.
+6. The roster says goodbye to {name}.
+7. {name} removed — retired, benched, or just busy IRL.
+8. {name} has been taken off the roster.
+
+### ROLE_CHANGED (8)
+1. {name}'s role updated: {old} → {new}.
+2. {name} is now playing {new}.
+3. Role swap for {name}: {new}.
+4. {name} switched things up — new role {new}.
+5. Tactical update: {name} now runs {new}.
+6. {name}'s primary role is now {new}.
+7. {name} moved from {old} to {new}.
+8. Position change logged for {name}: {new}.
+
+### PHOTO_CHANGED (8)
+1. {name} updated their profile photo.
+2. New look for {name} — photo updated.
+3. {name} refreshed their profile picture.
+4. Photo update: {name} has a new look on file.
+5. {name}'s profile picture was changed.
+6. {name} got a glow-up. New photo on file.
+7. Fresh photo uploaded for {name}.
+8. {name}'s avatar has been updated.
+
+### NAME_CHANGED (6)
+1. {oldName} is now known as {newName}.
+2. Name update: {oldName} → {newName}.
+3. {oldName} rebranded to {newName}.
+4. Roster correction: {oldName} is now {newName}.
+5. {newName} was formerly known as {oldName}.
+6. Identity update: {oldName} → {newName}.

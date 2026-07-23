@@ -1,0 +1,16 @@
+name = "cs2-friend-equalizer"
+main = ".output/server/index.mjs"
+compatibility_date = "2025-07-15"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".output/public"
+binding = "ASSETS"
+
+[[kv_namespaces]]
+binding = "CS2_KV"
+id = "a22126ce0f3a4fd59ffcd54eb62b3102"
+
+[[routes]]
+pattern = "csgo2.doxanh.dev"
+custom_domain = true
