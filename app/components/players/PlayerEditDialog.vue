@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import type { Player, Role, TagKind } from '#shared/types'
 import { ROLES } from '#shared/types'
-import { PlusIcon, XIcon } from '@lucide/vue'
+import { LoaderCircleIcon, PlusIcon, XIcon } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -220,6 +220,17 @@ async function submit() {
 
           <TagCreateInline @created="onTagCreated" />
         </FieldSet>
+
+        <div
+          v-if="saving"
+          class="hud-frame flex items-center gap-3 rounded-xl border border-primary/40 bg-card/85 px-4 py-2.5"
+          style="--hud-accent: var(--primary)"
+        >
+          <LoaderCircleIcon class="size-4 shrink-0 text-primary motion-safe:animate-spin" />
+          <p class="neon-text font-heading text-xs font-bold tracking-[0.2em] text-primary uppercase">
+            Saving<span class="animate-pulse">...</span>
+          </p>
+        </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" @click="emit('update:open', false)">

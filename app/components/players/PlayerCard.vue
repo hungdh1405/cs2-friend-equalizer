@@ -3,56 +3,37 @@ import { computed } from 'vue'
 import type { Player } from '#shared/types'
 import { ROLES } from '#shared/types'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { getTier } from '@/lib/tier'
 import { cn } from '@/lib/utils'
-import TagBadge from './TagBadge.vue'
 
 const props = defineProps<{ player: Player }>()
-const emit = defineEmits<{ edit: [Player], delete: [Player] }>()
-
-const { tagById } = useTags()
-const isUnlocked = useIsCrudUnlocked()
+const emit = defineEmits<{ view: [Player] }>()
 
 const initials = computed(() => props.player.name.trim().slice(0, 2).toUpperCase() || '?')
 const roleLabel = computed(() => ROLES.find(role => role.value === props.player.role)?.label ?? props.player.role)
-const tagIds = computed(() => Object.keys(props.player.tagLevels))
 const tier = computed(() => getTier(props.player.score))
-
-function tagPropsFor(tagId: string) {
-  const tag = tagById(tagId)
-  return {
-    label: tag?.label ?? tagId,
-    icon: tag?.icon ?? 'Tag',
-    kind: tag?.kind ?? 'neutral' as const,
-    level: props.player.tagLevels[tagId] ?? 3
-  }
-}
 </script>
 
 <template>
   <Card
-    :class="cn('player-card hud-frame-right carbon-fiber hover-lift gap-3 border-border/60 bg-card/80 py-4', tier.cardBorderClass, tier.glowClass)"
+    size="sm"
+    :class="cn(
+      'player-card carbon-fiber hover-lift hud-frame-right hud-frame-right-sm h-full cursor-pointer border-border/60 bg-card/80',
+      tier.cardBorderClass,
+      tier.glowClass
+    )"
     :style="{ '--hud-accent': tier.colorVar }"
+    @click="emit('view', player)"
   >
-    <div class="scanlines-diagonal" />
-    <div class="holo-sheen" />
-    <div class="holo-grid pointer-events-none absolute inset-0 opacity-60" />
-    <div class="spark-particles">
-      <span /><span /><span />
-    </div>
-
     <CardHeader class="flex-row items-start gap-3 space-y-0">
-      <div class="avatar-halo shrink-0">
-        <Avatar class="avatar-aura avatar-tilt size-12 ring-1 ring-border">
-          <AvatarImage :src="player.hasPhoto ? `/api/players/${player.id}/photo` : '/default-avatar.png'" alt="" />
-          <AvatarFallback>{{ initials }}</AvatarFallback>
-        </Avatar>
-      </div>
+      <Avatar class="size-12 shrink-0 ring-1 ring-border">
+        <AvatarImage :src="player.hasPhoto ? `/api/players/${player.id}/photo` : '/default-avatar.png'" alt="" />
+        <AvatarFallback>{{ initials }}</AvatarFallback>
+      </Avatar>
       <div class="min-w-0 flex-1">
         <CardTitle class="name-underline w-fit truncate font-heading text-base tracking-wide">
-          <NuxtLink :to="`/players/${player.id}`" class="hover:underline">
+          <NuxtLink :to="`/players/${player.id}`" class="player-name-text hover:underline" @click.stop>
             {{ player.name }}
           </NuxtLink>
         </CardTitle>
@@ -63,7 +44,7 @@ function tagPropsFor(tagId: string) {
       </div>
       <div class="flex shrink-0 flex-col items-end gap-1">
         <div
-          :class="cn('tier-pulse tier-badge-3d flex size-10 shrink-0 items-center justify-center font-heading text-xl font-black', tier.badgeClass, tier.badgeGlowClass)"
+          :class="cn('tier-badge-3d flex size-10 shrink-0 items-center justify-center font-heading text-xl font-black', tier.badgeClass, tier.badgeGlowClass)"
           :title="tier.label"
         >
           {{ tier.key }}
@@ -82,19 +63,11 @@ function tagPropsFor(tagId: string) {
       />
     </div>
 
-    <CardContent>
-      <div class="tag-panel carbon-fiber flex flex-wrap gap-1 bg-background/30 p-2">
-        <TagBadge v-for="tagId in tagIds" :key="tagId" v-bind="tagPropsFor(tagId)" />
-      </div>
-    </CardContent>
-
-    <CardFooter v-if="isUnlocked" class="justify-end gap-2">
-      <Button variant="outline" size="sm" class="btn-neon" @click="emit('edit', player)">
-        Edit
-      </Button>
-      <Button variant="ghost" size="sm" class="btn-neon text-destructive" @click="emit('delete', player)">
-        Delete
-      </Button>
-    </CardFooter>
+    <div
+      class="neon-text flex items-center justify-center px-4 pt-1.5 text-[10px] font-medium tracking-wide uppercase"
+      :style="{ color: tier.colorVar }"
+    >
+      View details
+    </div>
   </Card>
 </template>

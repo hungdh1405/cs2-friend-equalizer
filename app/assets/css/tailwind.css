@@ -339,13 +339,22 @@
   /* Card lift-on-hover — smooth, GPU-cheap, and skipped under reduced-motion. */
   @media (prefers-reduced-motion: no-preference) {
     .hover-lift {
-      transition: transform 0.2s ease-out, filter 0.2s ease-out;
+      transition: transform 0.2s ease-out, filter 0.35s ease-out;
     }
     .hover-lift:hover {
       transform: translateY(-3px);
       filter: brightness(1.06);
     }
   }
+
+  /* `opacity` is deliberately NOT in .hover-lift's transition list above. GSAP animates
+     `opacity` on `.player-card` directly for the roster entrance stagger (see index.vue) — a
+     GSAP tween sets inline `style.opacity` on every animation frame, and if a CSS `transition`
+     is also active on that property, the browser tries to smoothly interpolate toward *each*
+     of those per-frame values over the transition's own duration, fighting the already-smooth
+     GSAP tween and reading as generic sluggishness/lag. Confirmed by comparing the *inline*
+     opacity GSAP set each frame against the *computed* opacity the browser actually painted —
+     they diverged by up to 0.3 for hundreds of ms whenever this transition was present. */
 
   /* Landing flash — a quick glow burst on a player row right after its ghost-clone flight
      animation deposits it into a team slot (see teams.vue's flyPlayerRow). Color comes from
@@ -483,19 +492,6 @@
     50% { opacity: 0.5; transform: scale(1.08); }
   }
 
-  /* Hover "parallax" tilt — a fixed-angle 3D tilt rather than true pointer-tracked parallax
-     (which would need a per-card mousemove listener; not worth it across a dense grid of
-     cards), but reads the same at a glance: the avatar lifts and cants toward the viewer. */
-  @media (prefers-reduced-motion: no-preference) {
-    .avatar-tilt {
-      transition: transform 0.25s ease-out;
-      transform-style: preserve-3d;
-    }
-    .player-card:hover .avatar-tilt {
-      transform: perspective(300px) rotateX(6deg) rotateY(-6deg) scale(1.05);
-    }
-  }
-
   /* Diagonal scanline overlay for card backgrounds — same idea as .scanlines (used on the
      changelog terminal) but angled, so it reads as a HUD/display texture on a card rather
      than a literal CRT monitor. A dedicated overlay <div> class (see .scanlines above for
@@ -620,5 +616,72 @@
     .btn-neon:active {
       transform: translateY(0);
     }
+  }
+
+  /* --- Roster compact grid --- */
+
+  /* Smaller corner brackets for the roster grid's compact card — same motif as
+     .hud-frame-right, just 10px instead of 14px. Only overrides width/height (not content/
+     position/border/filter), so it safely layers on top of .hud-frame-right on the same
+     element without the "two classes fighting over one pseudo-element" collision this file
+     hit earlier (that bug was from a full `inset:0` shorthand clobbering explicit position
+     properties — this only ever touches two unrelated properties). The full-size
+     .hud-frame-right (no `-sm`) is used on its own in PlayerDetailDialog's popup card. */
+  .hud-frame-right-sm::before,
+  .hud-frame-right-sm::after {
+    width: 10px;
+    height: 10px;
+  }
+
+  /* Neon-bordered search input — additive glow on focus, matching the app's other
+     neon-on-dark accents rather than shadcn's default focus ring alone. */
+  .search-glow {
+    border-color: color-mix(in oklch, var(--hud-accent, var(--primary)) 45%, var(--border));
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .search-glow {
+      transition: box-shadow 0.2s ease-out;
+    }
+  }
+  .search-glow:focus-within {
+    box-shadow: 0 0 0 1px var(--hud-accent, var(--primary)), 0 0 16px -4px var(--hud-accent, var(--primary));
+  }
+
+  /* Sort direction toggle — a single button whose icon swaps (ascending/descending), with a
+     permanent neon border/glow rather than shadcn's flat default outline, so it reads as a
+     HUD control rather than a plain button. */
+  .sort-toggle-btn {
+    border-color: color-mix(in oklch, var(--hud-accent, var(--primary)) 55%, var(--border));
+    color: var(--hud-accent, var(--primary));
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--hud-accent, var(--primary)) 35%, transparent);
+  }
+
+  /* One-shot "materialize" glow ring for PlayerDetailDialog's popup card — plays automatically
+     on every mount with no JS trigger needed, since the popup's DialogContent is v-if-gated
+     (Presence-based) and gets a genuinely fresh DOM node each time it opens; a plain (non-
+     `infinite`) CSS animation just naturally runs once whenever an element carrying it first
+     paints. Deliberately translate/opacity/box-shadow only — no `transform: scale()` — since
+     this card contains `clip-path` children (.tier-badge-3d, .score-module, .tag-panel) and a
+     scale on an ancestor of clip-path content is a known cross-browser flicker bug (see the
+     Flip `scale: false` note in DESIGN.md's decisions log). Safe to run on every open: this is
+     always exactly one instance at a time, not a per-card cost like the old always-on ambient
+     animations were. */
+  @media (prefers-reduced-motion: no-preference) {
+    .dialog-materialize {
+      animation: dialog-materialize-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+  @keyframes dialog-materialize-in {
+    0% { box-shadow: 0 0 0 0 transparent; }
+    45% { box-shadow: 0 0 0 1px var(--hud-accent, var(--primary)), 0 0 48px -4px var(--hud-accent, var(--primary)); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  /* Carousel edge fade for PlayerSlider — cards dissolve into the page at the left/right
+     edges of the viewport instead of getting hard-cropped. A single static mask on the
+     viewport wrapper; no per-card JS position tracking needed. */
+  .slider-viewport {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
   }
 }
