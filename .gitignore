@@ -20,6 +20,7 @@ logs
 
 # Personal planning notes / prototypes, not app source
 references/
+note.txt
 
 # Local env files
 .env

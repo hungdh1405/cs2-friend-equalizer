@@ -1,4 +1,6 @@
-export type TierKey = 'S' | 'A' | 'B' | 'C' | 'D'
+import { getTierKey } from '#shared/utils/tier'
+
+export type { TierKey } from '#shared/utils/tier'
 
 export interface Tier {
   key: TierKey
@@ -81,7 +83,8 @@ const TIERS: Tier[] = [
 ]
 
 export function getTier(score: number): Tier {
-  return TIERS.find(tier => score >= tier.min) ?? TIERS[TIERS.length - 1]
+  const key = getTierKey(score)
+  return TIERS.find(tier => tier.key === key) ?? TIERS[TIERS.length - 1]
 }
 
 export function allTiers(): Tier[] {

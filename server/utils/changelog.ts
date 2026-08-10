@@ -7,6 +7,19 @@ export interface ChangeContext {
   ip: string
 }
 
+export interface VoteContext {
+  discordUserId: string
+  discordUsername: string
+}
+
+interface WriteEntryContext {
+  ip?: string
+  playerId?: string
+  playerName?: string
+  discordUserId?: string
+  discordUsername?: string
+}
+
 function pick<T>(pool: T[]): T {
   return pool[Math.floor(Math.random() * pool.length)]
 }
@@ -16,7 +29,7 @@ function render(template: string, vars: Record<string, string | number>): string
 }
 
 async function writeEntry(
-  ctx: ChangeContext,
+  ctx: WriteEntryContext,
   field: ChangeLogField,
   from: string | number | undefined,
   to: string | number | undefined,
@@ -28,6 +41,8 @@ async function writeEntry(
     ip: ctx.ip,
     playerId: ctx.playerId,
     playerName: ctx.playerName,
+    discordUserId: ctx.discordUserId,
+    discordUsername: ctx.discordUsername,
     field,
     from,
     to,
@@ -92,4 +107,32 @@ export async function logNameChanged(ctx: ChangeContext, oldName: string, newNam
   if (oldName === newName) return
   const message = render(pick(templates.NAME_CHANGED), { oldName, newName })
   await writeEntry({ ...ctx, playerName: newName }, 'name', oldName, newName, message)
+}
+
+export async function logVoteCast(ctx: VoteContext) {
+  const message = render(pick(templates.VOTE_CAST_LOG), { name: ctx.discordUsername })
+  await writeEntry(ctx, 'voteCast', undefined, undefined, message)
+}
+
+export async function logVoteDeclined(ctx: VoteContext) {
+  const message = render(pick(templates.VOTE_DECLINED_LOG), { name: ctx.discordUsername })
+  await writeEntry(ctx, 'voteDeclined', undefined, undefined, message)
+}
+
+// Unlike vote-cast/removed (a Discord-authenticated user action, deliberately not IP-logged
+// — see shared/types' ChangeLogEntry comment), creating an event is an admin action through
+// the same PIN-gated flow as player CRUD, so it's IP-stamped the same way those are.
+export async function logEventCreated(ip: string, startsAt: string) {
+  const message = render(pick(templates.EVENT_CREATED_LOG), { startsAt })
+  await writeEntry({ ip }, 'eventCreated', undefined, startsAt, message)
+}
+
+export async function logEventUpdated(ip: string, startsAt: string) {
+  const message = render(pick(templates.EVENT_UPDATED_LOG), { startsAt })
+  await writeEntry({ ip }, 'eventUpdated', undefined, startsAt, message)
+}
+
+export async function logEventCanceled(ip: string) {
+  const message = render(pick(templates.EVENT_CANCELED_LOG), {})
+  await writeEntry({ ip }, 'eventCanceled', undefined, undefined, message)
 }

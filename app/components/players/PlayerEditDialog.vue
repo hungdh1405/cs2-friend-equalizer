@@ -27,6 +27,7 @@ const name = ref('')
 const score = ref(50)
 const role = ref<Role>('rifler')
 const tagLevels = ref<Record<string, number>>({})
+const discordUserId = ref('')
 const photoDataUrl = ref<string | undefined>()
 const saving = ref(false)
 
@@ -35,6 +36,7 @@ function resetForm() {
   score.value = props.player?.score ?? 50
   role.value = props.player?.role ?? 'rifler'
   tagLevels.value = { ...(props.player?.tagLevels ?? {}) }
+  discordUserId.value = props.player?.discordUserId ?? ''
   photoDataUrl.value = undefined
 }
 
@@ -86,7 +88,8 @@ async function submit() {
         name: name.value.trim(),
         score: score.value,
         role: role.value,
-        tagLevels: tagLevels.value
+        tagLevels: tagLevels.value,
+        discordUserId: discordUserId.value.trim()
       })
       playerId = updated.id
       toast.success(`Updated ${updated.name}.`)
@@ -95,7 +98,8 @@ async function submit() {
         name: name.value.trim(),
         score: score.value,
         role: role.value,
-        tagLevels: tagLevels.value
+        tagLevels: tagLevels.value,
+        discordUserId: discordUserId.value.trim()
       })
       playerId = created.id
       toast.success(`${created.name} joined the roster.`)
@@ -155,6 +159,14 @@ async function submit() {
               </SelectContent>
             </Select>
             <FieldDescription>{{ roleDescription }}</FieldDescription>
+          </Field>
+
+          <Field>
+            <FieldLabel for="player-discord-id">Discord ID</FieldLabel>
+            <Input id="player-discord-id" v-model="discordUserId" placeholder="Optional — enables VIP vote messages and team-split" maxlength="25" />
+            <FieldDescription>
+              Links this player to their Discord account, so the bot's vote messages and weekly team splits know who they are. Right-click their name in Discord → Copy User ID (enable Developer Mode first).
+            </FieldDescription>
           </Field>
         </FieldGroup>
 

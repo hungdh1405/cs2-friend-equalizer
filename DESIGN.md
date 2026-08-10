@@ -6,15 +6,16 @@ Rebuild of `references/index.html` (a single-file localStorage prototype) as a r
 
 | | |
 |---|---|
-| **What's server-backed** | Player profiles (name, score, role, tags + skill levels, photo) and the public change log. |
+| **What's server-backed** | Player profiles (name, score, role, tags + skill levels, photo, optional Discord ID), the public change log, and the weekly event/vote system. |
 | **What's client-only** | Team-building: who's selected, team assignments, locks, tolerance, team names/count — `localStorage`, never sent to Cloudflare. |
 | **Stack** | Nuxt 4 + Vue 3 + TypeScript, shadcn-vue (Tailwind v4 under the hood), GSAP, pnpm. |
 | **Backend** | Nitro on Cloudflare Workers (plain `wrangler`, not NuxtHub) + Cloudflare KV. |
-| **Auth** | Public reads (roster/player/teams/changelog, no PIN needed) — the shared 6-digit PIN is only required to make changes, and grants a 15-minute CRUD token per session. IP-based brute-force lockout (5 attempts → 24h block) still applies to the PIN itself. |
-| **Pages** | Roster grid, player detail, team builder, change log — see §5. |
+| **Auth** | Public reads (roster/player/teams/changelog/event, no PIN needed) — the shared 6-digit PIN is only required to make changes, and grants a 15-minute CRUD token per session. IP-based brute-force lockout (5 attempts → 24h block) still applies to the PIN itself. |
+| **Discord bot** | No OAuth2/login — voting happens entirely via buttons on a Discord message (Discord Interactions, HTTP webhook, no gateway process). Website creates/edits/cancels the weekly event and manages Hosts; bot posts reminders and reacts to votes. See decisions log #65+. |
+| **Pages** | Roster grid, player detail, team builder, change log, event/vote status — see §5. |
 | **Domain** | `csgo2.doxanh.dev` (replaces whatever currently uses that hostname). |
-| **Ops** | `Makefile` — deploy, rotate PIN. |
-| **Out of scope (v1)** | Match history (the specific team splits themselves), accounts/roles, multi-device sync of an in-progress split. |
+| **Ops** | `Makefile` — deploy, rotate PIN, provision Discord secrets. |
+| **Out of scope (v1)** | Match history (the specific team splits themselves), accounts/roles, multi-device sync of an in-progress split, event history (only the current week's event is ever stored — see decisions log #65). |
 
 ## 2. Decisions log
 
@@ -134,6 +135,33 @@ Reasoning behind each call, so it's clear these were deliberate, not defaults:
       - **Verified**: dragging left/right visually advances/reverses the carousel correctly including seamless wrap-around in both directions (confirmed via screenshots — dragging left past the last few cards wraps to early-roster cards, dragging right past the first wraps to late-roster cards); the prev/next arrow buttons step exactly one card at a time (checked via each card's actual on-screen `getBoundingClientRect().left`, not DOM order, since GSAP only moves cards visually via `transform` — DOM order never changes); dragging never opens the popup, a plain tap always does; works identically on mobile and desktop viewports with zero horizontal page overflow; view mode is stored under the `cs2-roster-view` localStorage key and correctly restored on reload, defaulting to `grid` when unset; switching the underlying player list (search/sort while the slider is active) rebuilds the loop from the freshly-rendered cards rather than animating stale, unmounted elements.
     - **Responsive grid columns**: now that #63 removed the spotlight/`col-span` mechanism entirely, the "implicit column synthesis" bug from #54 (bare `col-span-2` needing a matching *explicit* 2-column grid at every breakpoint) no longer applies — there is no `col-span` anywhere in the new static-card architecture, so the grid is free to vary column count per breakpoint with no risk. Changed to `grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5`, chosen against the page's `max-w-6xl` (1152px) content width so cards stay comfortably sized at every step (down to ~217px at 5 columns) rather than degrading toward the cluttered "6 columns" end of that range. Verified via `getComputedStyle(grid).gridTemplateColumns` track counts at 375/768/1024/1440px: 2/3/4/5 respectively, zero horizontal overflow at any width.
     - Full regression re-run after all five changes: `pnpm test` 24/24; CRUD-unlock → edit-via-popup → save (no second PIN prompt) → delete-via-popup, all still correct; search/sort round-trip; zero console errors across `/`, `/teams`, `/tags`, `/changelog`.
+65. **Discord-native weekly event voting, replacing an initially-planned website-login design.** The first plan used Discord OAuth2 (log into the website with Discord, vote on a page) — reversed by explicit request once the actual usage pattern was considered: "most of people use their phone, so login via web are difficult and troublesome." Final design moves voting entirely into Discord — **no OAuth2, no website login, at all** — via **Discord Interactions**: buttons on a bot-posted message deliver plain signed HTTPS POSTs to `POST /api/discord/interactions`, not a persistent gateway/WebSocket connection, which fits Cloudflare Workers' request/response model directly (Discord's own recommended pattern for edge/serverless bots). The website becomes a public read-only dashboard (`/event`) plus a PIN-gated create/edit/cancel form and Hosts list — voting itself never touches the website.
+    - **Security**: every interaction is Ed25519-signature-verified (`discord-interactions` npm package's `verifyKey()`, checked against the stored bot Public Key + `X-Signature-Ed25519`/`X-Signature-Timestamp` headers) — this endpoint is in `PUBLIC_PATHS` (no session cookie from Discord's servers) but is *not* an open door, since a forged request fails signature verification. Verified locally by temporarily swapping in a throwaway Ed25519 test keypair (`.env`/`.dev.vars`, restored after) and posting real signed payloads via a Node script using `crypto.sign`/sending the raw JSON body — confirmed a wrong signature 401s and a genuinely-signed one succeeds.
+    - **Single active event, one KV blob (`event:current`)**, replacing rather than versioning — no event history in v1 (flagged as out of scope, §1). The vote target is a fixed constant (`NUXT_EVENT_TARGET_VOTES`, default 10), not per-event.
+    - **"King" renamed to "Host" throughout** (code, UI, bot messages) per explicit request ("i think the word Host is better"), and evolved from a single hardcoded Discord ID into a proper multi-Host list (`hosts:index`) manageable from `/event` — picked from players already linked to a Discord account (a `Select`, not free-text ID entry) rather than a raw snowflake, once `Player.discordUserId` existed to link against.
+    - **Message-pool sizing grew twice on explicit request**: from an initial "at least 20 each" to "30-50, we want so good messages and keep changing" — final counts: `VOTE_CAST_VIP`/`VOTE_CAST_NORMAL`/`VOTE_DECLINED`/`HOST_REMINDER`/`TEAM_READY` at 30 each, `VOTE_REMINDER_URGENT`/`CLOSE`/`ENOUGH` at 10 each, `EVENT_CREATED` at 25, `NEED_DISCORD_LINK`/`EVENT_CANCELED` deliberately smaller (8/6 — rare operational nudges, not per-vote messages). All Vietnamese, VIP tier-aware (an S/A-tier linked voter gets a distinctly hypier pool, "so they feel like VIP" per the brief), tone-scaled by how close the vote count is to target.
+    - **Tagging policy reversed twice, in opposite directions, both by explicit correction:** the *original* spec said never tag anyone in reminders ("dont tag all"); revised mid-build to tag the *specific* roster players linked to a Discord account who haven't voted yet ("we have list players, and know who already vote, and who not yet vote right?") — computed by diffing the roster against the event's voter (and later declined, #73) list, never a broad fallback. Separately, event-creation announcements originally tagged *no one* (the website's shared-PIN flow can't identify which Host clicked "create") until Hosts asked "when create event, should tag Host" — resolved by tagging *all* current Hosts collectively rather than attempting unreliable per-click attribution, applied identically to the daily Host reminder.
+    - **Match-ready team split**: reconsidered mid-conversation — first dropped ("forget it, just make special messages"), then reinstated once `Player.discordUserId` linking existed, tied specifically to it: once voters cross the target *and every voter is linked to a roster Player*, `team-generator.ts` wraps the already-tested `randomBalancedOption()` (`shared/utils/balance.ts`) to announce a random 2-team split; if any voter isn't linked yet, `NEED_DISCORD_LINK` fires instead (naming who), and team generation is skipped. Team-split *re*-announcement only happens at the 20:00 reminder slot, not on every vote, so it doesn't churn.
+    - **Scheduled tasks**: Nitro's `server/tasks/*` + `nuxt.config.ts`'s `scheduledTasks` map cron strings to task names — confirmed via source inspection that Cloudflare's `wrangler.toml` `[triggers].crons` is **not** auto-generated from this and must be kept in sync by hand (a real gap, not an oversight if they ever drift). Host reminder: daily 10:00 Asia/Ho_Chi_Minh (`0 3 * * *` UTC), silent once any event exists for the current calendar week (`isInCurrentWeek()`, computed via `Intl.DateTimeFormat` offset math, not the server's own UTC clock). Vote reminder: 12:00/16:00/20:00 (`0 5,9,13 * * *`), tone banded by `remaining = target - voters.length`. `NUXT_DISCORD_DRY_RUN` logs instead of posting, for safe local iteration against the real bot token/channel.
+66. **First round of real Discord usage produced concrete UI feedback (4 screenshots) with four fixes**: the cancel button's ❌ emoji was itself a red box, invisible against Discord's red "Danger" button style — swapped to ✖️ (later revisited in #74); the create-event form's plain text date input became an actual `datetime-local` picker and the description field became a `Textarea`; the Host field became a `Select` populated from Discord-linked players (see #65) instead of raw ID entry; Vietnamese text was rendering with wrong glyphs, root-caused to `Orbitron`/`Rajdhani` (this app's display/body fonts, decisions log #28) lacking proper diacritic coverage — fixed with an unlayered, `!important`, `:lang(vi)`-scoped override in `tailwind.css` that reliably beats Tailwind's `@layer utilities` classes regardless of specificity, plus `lang="vi"` added to `/event`'s root *and* separately to each teleported `DialogContent`/`AlertDialogContent` (Vue's `<Teleport>`, used internally by Dialog, breaks normal DOM-ancestor `lang` inheritance). Confirmed via direct follow-up question that this was meant to be Vietnamese-content-only, not a site-wide font change — every other page stays on the existing English/Orbitron-Rajdhani system.
+67. **Cancel-event feature, with specific interaction semantics confirmed by explicit question-and-answer rather than assumed**: `GameEvent.canceledAt` is set but the record is **kept, not deleted** — the weekly Host reminder task deliberately does *not* check `canceledAt`, so "this week already had an event, even a canceled one" still silences the daily nag, matching "if 1 week already have cancel, also dont remind to create events." Vote reminders and new votes both stop immediately, since there's nothing left to vote on. The Discord message is edited (embed + `components: []`) rather than deleted, so the cancellation itself is visible in-channel.
+68. **Auto-close, 2 hours after the scheduled start** (`shared/utils/event-status.ts`'s `hasEventEnded()`), per "Event will automatically close when the event datetime + 2 hours, so no reminder right?" — always computed live from `startsAt` (never a stored flag, so it can't drift), with `GameEvent.closedAt` existing purely to avoid re-editing the same now-buttonless Discord message every cron run once it's already closed. The interactions endpoint independently rejects a vote already in flight when this fires, with a distinct ephemeral message from the canceled case. Verified locally by hand-patching a KV record's `startsAt` into the past (the only way to get sub-minute-precision test timing, since the create form's `datetime-local` input has no seconds field) and confirming the task's dry-run log shows the edit-to-ended-embed exactly once, never on a second run.
+69. **Event creation now tags all current Hosts** (see #65's tagging-policy note) after a round of clarifying questions confirmed the bot *can* mention a known Discord ID with no special permission beyond Send Messages, and that the Host list / `Player.discordUserId` mappings were both accurate and safe to use for this — `EVENT_CREATED`'s 25 templates were rewritten to include a `{hosts}` placeholder, and `notifyEventCreated()` gained a `hosts` parameter. `discord-notify.ts`'s `render()` also gained a `.replace(/ {2,}/g, ' ').trim()` cleanup step, since an empty `{mentions}`/`{hosts}` substitution was otherwise leaving an awkward double space mid-sentence (caught via dry-run log inspection).
+70. **In-place event editing (`PATCH /api/events/current`), distinct from both replace and cancel** — "the website should allow us to edit the date time and content right?" surfaced a real gap: the only existing mutating actions were *create* (always a brand-new event, discarding votes) and *cancel*. Edit preserves `id`/`voters`/`declinedVoters`/`createdAt`/`discordMessageId` and only updates `startsAt`/`description`, editing the *existing* Discord message rather than posting a new one — explicitly rejected (409) on a canceled or already-ended event, since there's nothing left to correct at that point. `shared/utils/week.ts` gained `utcIsoToVietnamLocalInput()` (the inverse of the existing local→UTC converter) to pre-fill the edit form with the current event's values. The website's create dialog does double duty for both create and edit (a `dialogMode` ref swaps the title/submit label/handler) rather than a second near-duplicate dialog.
+71. **Hosts management polish**: 2-column grid on tablet/desktop (was single-column); a specific Host ("Ladygaga" — the group's permanent organizer) made **un-removable by identity**, not just "can't remove the last one" — confirmed via explicit question, since those are meaningfully different rules (protecting one person forever vs. a generic non-empty-list guard). Enforced in *two* places on purpose (`shared/utils/hosts.ts`'s `isProtectedHost()`): the UI hides the remove button for that entry (shows a crown instead), and `DELETE /api/hosts/:id` independently rejects that ID with a 403 — so it holds even against a direct API call, not just the UI. Separately, Remove Host gained a destructive-confirm `AlertDialog` (it previously deleted on a single click with zero confirmation, inconsistent with every other destructive action in the app) and both Add/Remove Host gained a loading state during the request — explicit feedback ("all actions delete/update need confirm right? why you forgot? and have loading like edit/create player tags") pointing at a real inconsistency, not a new feature ask.
+72. **Site-wide "bloody C4 countdown" alert** (`MatchCountdownAlert.vue`, mounted from `layouts/default.vue`), per an explicit, vivid brief ("very bloody and neon and red... gsap effect for more bloody and look death") plus a follow-up asking for the real CS2 C4 model instead of a skull icon.
+    - **Component**: shadcn-vue's `Alert`/`AlertTitle`/`AlertDescription`/`AlertAction` sub-parts (added via its own CLI) are used for the text/action slots, but the *root* element is a plain `div` rather than `<Alert>` itself — `<script setup>` components without `defineExpose` don't reliably hand back their DOM node via a template `ref`, and GSAP needs a real element to animate; using the sub-components for their typographic styling while keeping a plain animatable root sidesteps that without relying on undocumented Vue internals.
+    - **GSAP effects, all skipped under `prefers-reduced-motion`**: a heartbeat-style double-thump `boxShadow`/`scale` timeline (GSAP's core CSS handling tweens `boxShadow` as a compound string directly, no plugin needed); a dying-neon flicker on the title via `gsap.utils.random()`-timed opacity/x-jitter bursts scheduled with a recursive `gsap.delayedCall` (irregular pacing that a fixed-repeat timeline can't easily produce); a handful of blood-drip elements along the bottom edge, each its own small `scaleY`-from-`transform-origin:top` loop with a randomized pause between drips.
+    - **The C4 image is self-hosted, not hotlinked**: downloaded (from a wikia URL the user provided) into `public/images/c4-bomb.png`, its white background removed via a Python/PIL near-white color-key threshold (no ImageMagick available in this environment), then downscaled from 512×384/138KB to 224×168/36KB since it only ever renders at ~56×40 CSS px.
+    - **Sound is a synthesized Web Audio beep, not an audio file** — chosen specifically so the beep *rate* can scale smoothly with actual time remaining (a looping asset can't do that): tiered from a slow 4s tick beyond a day out down to a rapid 180ms beep in the final 10 seconds, mirroring the in-game plant timer. Off by default (a speaker toggle, persisted via localStorage) since browsers block autoplay-with-sound without a real user gesture anyway; if the stored preference says "on" but a fresh page load hasn't had a gesture yet, a one-time `pointerdown`/`keydown` listener silently resumes the suspended `AudioContext`. Verified by intercepting `AudioContext`/`oscillator.start()` in a Playwright `addInitScript` (actual audio can't be "heard" in a headless test) to count real beep timestamps and confirm both the tiered interval math and a clean stop the instant the countdown reaches zero.
+    - **Dismiss is per-page-session only, not persisted** — reversed from an initial localStorage-backed "stays dismissed for this event id forever" design, per explicit correction ("should show each time if reload... if have event then it show"): `dismissedEventId` is now a plain in-memory ref with no `localStorage` at all, so a hard reload always re-shows the alert as long as an upcoming event still exists. (The sound-on/off *preference* stays persisted — a different, explicitly-unchanged concern.)
+    - **Confirmed, on direct question, that every string in this alert stays Vietnamese** — consistent with `/event` and the bot's own messages (the rest of the site's chrome stays English; see #66's font-fix scoping note).
+    - Also fixed a real, unrelated CSS bug found while in this exact card: the `/event` page's event-details card used `.hud-frame-right` (both corner brackets on the right edge only — reserved for elements with a competing thick tier-colored *left* border, decisions log #43) despite having no left border at all, so its left side looked bare. Swapped to the plain two-corner `.hud-frame`.
+73. **Vote decline is now a real, tracked third state, not just "removed."** Originally, clicking "Không tham gia được" simply removed you from `voters` (indistinguishable from never having voted) — meaning the vote-reminder task would keep tagging someone who'd explicitly said no, exactly the nagging "if player vote No, we shouldn't mention them again right?" flagged. `GameEvent.declinedVoters` is a new parallel list: every click now lands you in exactly one of `voters`/`declinedVoters` (clicking the button for the state you're already in is a no-op, same idempotency as before; clicking the other one moves you across, clearing you from wherever you were). The reminder task now excludes anyone in `declinedVoters` from its tag list. The old neutral `VOTE_REMOVED` pool was replaced outright (not kept alongside) with a warm `VOTE_DECLINED` pool (30 entries — "hẹn gặp lại," "nhớ bạn rồi," "mong tuần sau có mặt") since a decline is the *only* message that person will get about it and shouldn't read as guilt-tripping. `/event` gained a "Không tham gia (N)" section, deliberately smaller (smaller avatars, muted text, lower opacity) than the main voter list per explicit instruction, and hidden entirely when empty rather than showing "(0)".
+    - Verified the full state machine (decline → re-decline no-op → switch to yes → re-yes no-op → switch back) via the same signed-interaction test technique as #65, plus confirmed a linked-and-declined player is excluded from the next reminder's tag list via the dry-run log.
+    - Incidental find while debugging this round's local testing: a *large* number of orphaned `workerd` child processes (Cloudflare's local dev runtime) had accumulated across many days of dev-server restarts, because the kill command used elsewhere in this session (`pkill`-style matching on `nuxt.mjs dev`) didn't match this project's actual current process name (`@nuxt/cli`'s `dev/index.mjs`) — so several "restarts" during testing were silent no-ops against a stale process still holding the old config/env in memory. `lsof -i :3000` (find whatever's actually bound to the port, kill that) is the reliable check going forward, not a process-name guess.
+74. **Discord button contrast fixed properly, on a second report that #66's ✖️ fix still wasn't legible.** Root cause: *any* emoji glyph in a Discord button's dedicated `emoji` field renders via the client's own colored emoji font — there is no "white X" unicode emoji guaranteed to render as plain white text across clients, so no glyph choice in that slot was ever going to fix it. Fixed by dropping the `emoji` field entirely and putting a plain `✕` character directly in the button's **label** text instead (`'✕ Không tham gia được'`) — label text always renders in Discord's normal white button-label color regardless of button style/theme, which is a real guarantee the emoji slot doesn't have.
+75. **Found and fixed a real correctness bug while answering "if there is active event, can we create new event, or should only have 1?"**: the answer is yes-only-one-by-design (creating always replaces `event:current`), but replacing never touched the *old* event's Discord message — it kept sitting in the channel with live-looking vote buttons, and clicking them would have silently mutated the *new* event's voter list instead (the interactions handler only ever read `getCurrentEvent()`, with no check that the click actually came from that event's message). Fixed on both sides: `POST /api/events` now edits the old message to a "🔄 Sự kiện đã được thay thế" embed with no buttons before creating the new one (`buildReplacedEventEmbed()`); `interactions.post.ts` additionally compares the interaction's own `message.id` against `current.discordMessageId` and returns an ephemeral "this was replaced, vote on the latest message" reply on a mismatch, as defense-in-depth for a click already in flight before the edit propagates. Verified via the signed-interaction technique: a simulated click on the stale message is rejected with zero effect on the new event's data, while a click on the genuine current message still works normally.
 
 | Key | Value | Notes |
 |---|---|---|
@@ -142,6 +170,8 @@ Reasoning behind each call, so it's clear these were deliberate, not defaults:
 | `tags` | `Tag[]` catalog | Seeded from the reference app's `SKILLS` set on first read if empty. Full CRUD. |
 | `changelog:index` | `ChangeLogEntry[]` | Append-only feed, newest first; see §9. |
 | `throttle:<ip>` | `{ attempts, blockedUntil }` | PIN brute-force tracking, self-expiring via KV TTL. |
+| `event:current` | `GameEvent \| null` | The single active weekly event, if any — see decisions log #65. Creating a new one overwrites this key; no history of past events is kept. |
+| `hosts:index` | `Host[]` | Who the bot reminds daily to schedule the week's event — see decisions log #65. |
 
 ```ts
 type Player = {
@@ -151,6 +181,7 @@ type Player = {
   role: Role                       // single-select, see canonical list below
   tagLevels: Record<string, number> // tagId -> level, 1–5 (drives badge color intensity only, never shown as a number)
   hasPhoto: boolean
+  discordUserId?: string           // links this player to a real Discord account — see decisions log #65
   createdAt: string
   updatedAt: string
 }
@@ -168,13 +199,44 @@ type Tag = {
 type ChangeLogEntry = {
   id: string
   at: string                       // ISO timestamp
-  ip: string
-  playerId: string
-  playerName: string               // denormalized so the log reads fine even if the player is later deleted
+  ip?: string                      // omitted for vote-type entries — a Discord-authenticated action is a stronger identity signal than IP
+  playerId?: string                // absent for vote-type entries, which aren't tied to a roster Player
+  playerName?: string              // denormalized so the log reads fine even if the player is later deleted
+  discordUserId?: string           // set instead of playerId/playerName for vote-type entries
+  discordUsername?: string
   field: 'score' | 'tagLevel' | 'tagAdded' | 'tagRemoved' | 'role' | 'name' | 'photo' | 'created' | 'deleted'
+        | 'voteCast' | 'voteDeclined' | 'eventCreated' | 'eventUpdated' | 'eventCanceled'
   from?: string | number
   to?: string | number
   message: string                  // pre-rendered from the template pool, see §9
+}
+
+// Event/vote system — see decisions log #65 for the full design.
+type EventVoter = {
+  discordUserId: string
+  username: string
+  avatar: string | null            // Discord avatar hash -> CDN URL client-side
+  votedAt: string
+}
+
+type GameEvent = {
+  id: string
+  startsAt: string                 // ISO UTC instant, always rendered in Asia/Ho_Chi_Minh
+  description?: string
+  createdAt: string
+  discordMessageId?: string        // the message with the vote buttons
+  voters: EventVoter[]
+  declinedVoters: EventVoter[]     // explicit "Không tham gia được" — distinct from not-yet-voted, see #73
+  matchReadyAnnouncedAt?: string   // set once voters.length first reaches the target; cleared if it drops back below
+  teamsAnnouncedVoterCount?: number
+  canceledAt?: string              // record is kept, not deleted, so the weekly Host reminder still sees "this week was handled"
+  closedAt?: string                // set once the 2h-after-start auto-close has edited the Discord message; "is it over" is always computed live from startsAt, never read from this
+}
+
+type Host = {
+  discordUserId: string
+  username?: string
+  addedAt: string
 }
 ```
 
@@ -229,8 +291,11 @@ Moves from a single-page app to real Nuxt routes:
 | `/teams` | **Team builder** — the reference app's core loop: select players, assign/randomize into teams (2 by default, any validated count — §6), lock/unassign, tolerance, metrics. Client-only state. |
 | `/tags` | **Tag catalog** (added, decisions log #49) — manage the shared tag catalog directly: rename, re-icon, re-categorize (positive/warning/neutral), see each tag's usage count across the roster, delete (cascades off every player), create new. Add/edit/delete hidden until unlocked, same gate as the roster. |
 | `/changelog` | **Change log** — global feed, everyone can view, IP + timestamp + what changed, generated flavor text. Its own page (not on the dashboard by default) satisfies "can hide" — you only see it if you go looking. |
+| `/event` | **Event/vote status** (added, decisions log #65) — read-only for everyone: this week's event (if any), live countdown, who's voted in/declined. Create/edit/cancel the event and manage Hosts are hidden until unlocked, same gate as the roster. Voting itself never happens here — only in Discord. |
 
-`layouts/default.vue` carries a slim top nav (app name, the four routes as compact ghost-button links, an `UnlockIndicator` + `ModeToggle` on the right) — no sidebar, matching the dense/compact direction. Every route renders for every visitor unconditionally (see decisions log #4) — there's no page-level auth gate; `CrudPinDialog.vue` is mounted once in `app.vue` and pops up only when a mutating action actually needs the PIN.
+A site-wide banner (`MatchCountdownAlert.vue`, decisions log #72) also shows a countdown to the next event from every page, not just `/event`.
+
+`layouts/default.vue` carries a slim top nav (app name, the five routes as compact ghost-button links, an `UnlockIndicator` + `ModeToggle` on the right) — no sidebar, matching the dense/compact direction. Every route renders for every visitor unconditionally (see decisions log #4) — there's no page-level auth gate; `CrudPinDialog.vue` is mounted once in `app.vue` and pops up only when a mutating action actually needs the PIN.
 
 ## 6. Team count (default 2, user-chosen, validated)
 
@@ -302,42 +367,49 @@ Messages are picked (pseudo-randomly, or round-robin to avoid immediate repeats)
 
 - **Nuxt 4** + Vue 3 + TypeScript, **pnpm**.
 - **shadcn-vue**, scaffolded via its own CLI (per the installed `shadcn-vue` skill): `npx shadcn-vue@latest init --template nuxt --preset nova` with a green base color — wires Tailwind v4, `components.json`, aliases, and the theme-token CSS file in one step.
-  - Components added on demand: `button card input label select checkbox dialog alert-dialog badge sonner dropdown-menu popover command separator tooltip skeleton switch field input-otp toggle-group avatar empty slider chart-bar chart-line chart-area`.
+  - Components added on demand: `button card input label select checkbox dialog alert-dialog alert badge sonner dropdown-menu popover command separator tooltip skeleton switch field input-otp toggle-group avatar empty slider chart-bar chart-line chart-area`. (`accordion` has no registry access in this environment and was hand-written over reka-ui's primitives instead — decisions log #53.)
   - Skill rules followed throughout: `class` for layout only, semantic color tokens, `FieldGroup`/`Field` for forms, items always inside their Group component, `vue-sonner` for toasts, icons via `data-icon`.
 - **Dark mode**: `@nuxtjs/color-mode`, default dark, `ModeToggle.vue`.
-- **Typography**: `Orbitron` (display/headings), `Rajdhani` (body/UI), `Share Tech Mono` (data/terminal) — Google Fonts, loaded via `@import` in `tailwind.css`. See decisions log #28.
-- **Animation**: **GSAP** (`gsap`, `Flip` plugin) — see §8.
+- **Typography**: `Orbitron` (display/headings), `Rajdhani` (body/UI), `Share Tech Mono` (data/terminal) — Google Fonts, loaded via `@import` in `tailwind.css`. See decisions log #28. Vietnamese-language content (`/event`, the bot's own messages, `MatchCountdownAlert`) overrides back to `ui-sans-serif` via a `:lang(vi)`-scoped rule, since neither display font has full diacritic coverage — decisions log #66.
+- **Animation**: **GSAP** (`gsap`, `Flip`, `ScrambleTextPlugin`, `ScrollTrigger` plugins) — see §8, and decisions log #58/#72 for its use outside the roster/team-builder.
 - **Backend**: Nitro on Cloudflare Workers, plain `wrangler` (decisions log #5).
   - `nitro.preset = "cloudflare_module"`.
   - KV via Nitro's storage layer — `cloudflare-kv-binding` driver mounted as `useStorage('kv')` — local dev works against an fs/in-memory fallback, no Cloudflare account needed day-to-day.
-  - `wrangler.toml`: `kv_namespaces` binding, `routes` entry for the custom domain, `compatibility_date`.
+  - `wrangler.toml`: `kv_namespaces` binding, `routes` entry for the custom domain, `compatibility_date`, `[triggers].crons` (decisions log #65).
+  - Nitro scheduled tasks (`server/tasks/*`) for the Discord bot's daily/3x-daily reminders — see decisions log #65.
+- **Discord bot**: `discord-interactions` npm package (Ed25519 request-signature verification only — no gateway/WebSocket connection, no bot framework). See decisions log #65.
 - **Validation**: `zod` for all API request bodies; shared types in `shared/types.ts`.
 - **Testing**: Vitest for the 2-team and N-team balancing algorithms.
 
 ## 12. Project structure
 
 ```
-nuxt.config.ts                  # nitro preset, storage/kv mount, color-mode, css
-wrangler.toml                   # kv_namespaces, routes (custom domain), compatibility_date
-Makefile                        # deploy, change-pin, dev, build
-.env.example                    # NUXT_APP_PIN, NUXT_SESSION_PASSWORD
+nuxt.config.ts                  # nitro preset, storage/kv mount, color-mode, css, scheduledTasks cron map (decisions log #65)
+wrangler.toml                   # kv_namespaces, routes (custom domain), compatibility_date, [triggers].crons (kept manually in sync with scheduledTasks)
+Makefile                        # deploy, change-pin, dev, build, clear-changelog, provisions Discord secrets in setup
+.env.example                    # NUXT_APP_PIN, NUXT_SESSION_PASSWORD, NUXT_DISCORD_BOT_TOKEN/PUBLIC_KEY/CHANNEL_ID, NUXT_EVENT_TARGET_VOTES, NUXT_DISCORD_DRY_RUN
 app.vue                         # loads roster/tags + CRUD-token state, mounts CrudPinDialog
 layouts/
-  default.vue                   # compact top nav + UnlockIndicator + ModeToggle
+  default.vue                   # compact top nav + UnlockIndicator + ModeToggle; mounts MatchCountdownAlert (decisions log #72) above the header
 pages/
   index.vue                     # roster grid, CRUD hidden until unlocked
   players/[id].vue              # player detail: chart + tag levels + change log slice
   teams.vue                     # team builder (client-only)
   changelog.vue                 # global change log feed
+  event.vue                     # event/vote status + create/edit/cancel + Hosts management, see decisions log #65-71
+  terms.vue                     # required once the Discord bot processes/displays real user data (avatar/username/vote), see #65
+  privacy.vue
 components/
-  ui/                           # shadcn-vue generated primitives
+  ui/                           # shadcn-vue generated primitives, incl. alert/ (decisions log #72) and a hand-written accordion/ (no registry access, see #64)
   CrudPinDialog.vue              # modal PIN prompt, opened on demand by requireCrudToken()
   UnlockIndicator.vue            # nav "Locked" / "Unlocked Xm:Ss" badge, click to unlock/lock
   ModeToggle.vue
   players/
     PlayerCard.vue               # incl. tier badge + border accent
+    PlayerDetailDialog.vue       # full-profile popup, see decisions log #63
+    PlayerSlider.vue             # GSAP infinite-loop carousel alt view, see decisions log #64
     PlayerRadarChart.vue         # inline-SVG radar chart, player attributes panel
-    PlayerEditDialog.vue         # name, score, role, tag+level picker, photo upload
+    PlayerEditDialog.vue         # name, score, role, tag+level picker, photo upload, Discord ID (decisions log #65)
     TagCreateInline.vue          # new tag: label + icon + kind
     TagIconPicker.vue            # Popover + Command, searchable curated Lucide set
     PlayerPhotoUpload.vue        # file input -> canvas resize/compress -> base64
@@ -352,6 +424,8 @@ components/
   changelog/
     ChangeLogFeed.vue
     ChangeLogEntryRow.vue
+  event/
+    MatchCountdownAlert.vue      # site-wide "bloody C4" countdown banner, GSAP + synthesized beep sound — see decisions log #72
 composables/
   usePlayers.ts                  # roster CRUD via API
   useTags.ts                     # tag catalog CRUD via API
@@ -360,6 +434,8 @@ composables/
   useTeamBalancer.ts             # wraps shared/utils/balance.ts (2-team + N-team) against players + useTeamBuilder state
   useGSAP.ts                     # registers/lazy-loads GSAP plugins (Flip), per gsap-frameworks skill
   useCrudGate.ts                 # CRUD-token state, requireCrudToken()/ensureCrudToken(), CrudCancelledError
+  useEvent.ts                    # current event + Hosts CRUD via API, see decisions log #65/#70
+  useCountdown.ts                # ticks shared/utils/countdown.ts every second against a reactive target ISO
 server/
   api/
     auth/login.post.ts           # PIN check + rate limit -> issues a 15-min CRUD token on success
@@ -376,17 +452,37 @@ server/
     tags/[id].patch.ts
     tags/[id].delete.ts
     changelog/index.get.ts       # paginated global feed
-  middleware/auth.ts              # only checks non-GET /api/* requests for a live CRUD token; reads pass straight through
+    events/current.get.ts        # public
+    events/index.post.ts         # create (always replaces any current event) -> posts embed+buttons, retires old message, notifies Hosts
+    events/current.patch.ts      # edit date/description in place, preserving votes -> edits the live Discord message
+    events/current.delete.ts     # cancel (kept, not deleted, for the weekly Host-reminder check) -> strips Discord buttons
+    hosts/index.get.ts
+    hosts/index.post.ts
+    hosts/[id].delete.ts         # rejects the permanently-protected Host (shared/utils/hosts.ts), see decisions log #71
+    discord/interactions.post.ts # the one Discord Interactions endpoint — signature-verified, not PIN-gated; see decisions log #65/#75
+  middleware/auth.ts              # only checks non-GET /api/* requests for a live CRUD token; reads pass straight through — except /api/discord/interactions, secured by its own signature check instead
+  tasks/discord/hostReminder.ts  # daily 10:00 (Asia/Ho_Chi_Minh) — nudges Hosts if no event exists yet this week; also prunes 30-day-old vote log entries
+  tasks/discord/voteReminder.ts  # 3x/day — tone-banded reminder tagging only unvoted *linked* players; also handles 2h auto-close and evening team-split (re)announce
   utils/kv.ts                    # typed get/set helpers over useStorage('kv')
   utils/session.ts               # session config, hasValidCrudToken(), CRUD_TOKEN_TTL_MS, getClientIp()
   utils/changelog.ts              # appendEntry(field, from, to, ip) -> picks a template, writes entry
-  utils/changelog-messages.ts    # the 132 templates from §A
+  utils/changelog-messages.ts    # the 132 templates from §A, plus vote/event-lifecycle templates added in #65-75
   utils/seed-data.ts             # migrated roster + tag catalog, see decisions log #17
+  utils/discord-api.ts           # postDiscordMessage/editDiscordMessage (dry-run aware), escapeDiscordMarkdown
+  utils/discord-embeds.ts        # buildEventEmbed, buildEventComponents, buildReplacedEventEmbed (#75)
+  utils/discord-messages.ts      # Vietnamese template pools for the bot's own channel messages, 6-30 entries each — see decisions log #65
+  utils/discord-notify.ts        # business logic calling the above, one function per event type (vote cast/declined, reminders, host nudge, team ready, cancel/create)
+  utils/team-generator.ts        # wraps shared/utils/balance.ts's randomBalancedOption() for the match-ready team-split announcement
 shared/
-  types.ts                       # Player, Tag, ChangeLogEntry
+  types.ts                       # Player, Tag, ChangeLogEntry, GameEvent, EventVoter, Host — see §3
   utils/balance.ts                # combinations, rolePenalty, scoreOf, desiredTeamSizes, balancedOptions (2-team)
   utils/balanceNTeams.ts          # snake-draft + local-search swap heuristic (any N > 2)
   utils/balance.test.ts
+  utils/tier.ts                   # getTierKey(score) — extracted from app/lib/tier.ts so server code (VIP vote messages) can use it too
+  utils/week.ts                   # Vietnam-timezone datetime-local <-> UTC ISO conversion, isInCurrentWeek(), formatVietnamDateTime()
+  utils/event-status.ts           # hasEventEnded() — always computed live from startsAt, never from a stored flag
+  utils/countdown.ts              # getCountdown(targetIso) -> {days,hours,minutes,seconds,totalMs}
+  utils/hosts.ts                  # PROTECTED_HOST_DISCORD_ID / isProtectedHost() — see decisions log #71
 ```
 
 ## 13. Makefile

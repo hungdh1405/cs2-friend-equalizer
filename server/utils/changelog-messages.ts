@@ -166,3 +166,42 @@ export const NAME_CHANGED = [
   '{newName} was formerly known as {oldName}.',
   'Identity update: {oldName} → {newName}.'
 ]
+
+// Discord-side voting activity, mirrored into this same audit trail. Distinct from the
+// bot's own Vietnamese-language Discord messages (server/utils/discord-messages.ts) — this
+// is the English-language admin/audit feed, same voice as everything else on this page.
+export const VOTE_CAST_LOG = [
+  '{name} voted in for this week.',
+  '{name} is confirmed in for the next session.',
+  "{name} tapped in — they're playing.",
+  '{name} locked in a spot for this week.',
+  'Vote logged: {name} is in.'
+]
+
+export const VOTE_DECLINED_LOG = [
+  '{name} declined this week — no longer confirmed.',
+  '{name} marked themselves as not attending.',
+  'Vote declined: {name} is sitting this one out.',
+  '{name} opted out of the next session.',
+  '{name} dropped out of the headcount.'
+]
+
+export const EVENT_CREATED_LOG = [
+  "This week's event was scheduled for {startsAt}.",
+  'New event created: {startsAt}.',
+  'The next session is set for {startsAt}.',
+  'Event posted — voting opens for {startsAt}.'
+]
+
+export const EVENT_UPDATED_LOG = [
+  "This week's event was updated — now {startsAt}.",
+  'Event details changed: now scheduled for {startsAt}.',
+  'The session time/description was edited — {startsAt}.',
+  'Event updated in place — {startsAt}. Existing votes were kept.'
+]
+
+export const EVENT_CANCELED_LOG = [
+  "This week's event was canceled.",
+  'Event canceled — no session this week after all.',
+  'The scheduled session was called off.'
+]

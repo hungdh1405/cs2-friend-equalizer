@@ -1,75 +1,36 @@
-# Nuxt Minimal Starter
+# CS2 Friend Equalizer
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+A shared roster + team-balancer for a CS2 friend group, plus a Discord-native weekly event/vote system. Live at [csgo2.doxanh.dev](https://csgo2.doxanh.dev).
+
+- **Roster** — player profiles (score, role, tags with skill levels, photo), public change log, tier badges (S/A/B/C/D).
+- **Team builder** — select players, auto-balance into 2+ teams (client-only, `localStorage`-persisted).
+- **Event/vote** — a Host schedules the week's session on the website; everyone votes via buttons on a Discord message (no login) — see `/event`. A bot reminds Hosts to schedule and nudges anyone who hasn't voted yet.
+
+Editing anything (roster, events, Hosts) needs the shared PIN — reads are public. See [`DESIGN.md`](./DESIGN.md) for the full design rationale and a running decisions log of everything built and why.
+
+## Stack
+
+Nuxt 4 + Vue 3 + TypeScript, shadcn-vue, GSAP, on Nitro/Cloudflare Workers + KV. See `DESIGN.md` §11.
 
 ## Setup
 
-Make sure to install dependencies:
-
 ```bash
-# npm
-npm install
-
-# pnpm
 pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
+cp .env.example .env   # fill in NUXT_APP_PIN, NUXT_SESSION_PASSWORD, and the Discord bot vars
 ```
 
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+## Development
 
 ```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
+make dev     # local dev server — KV falls back to a filesystem store, no Cloudflare account needed
+make test    # Vitest suite for the team-balancing algorithms
 ```
 
-## Production
-
-Build the application for production:
+## Deployment
 
 ```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+make setup   # one-time: creates the Cloudflare KV namespace + pushes secrets from .env
+make deploy  # build + deploy to Cloudflare Workers
 ```
 
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Other useful targets: `make change-pin PIN=123456` (rotates the shared PIN), `make clear-changelog` (wipes the live change log). Run `make help` for the full list.

@@ -5,7 +5,9 @@ const bodySchema = z.object({
   name: z.string().trim().min(1).max(40).optional(),
   score: z.number().min(0).max(120).optional(),
   role: z.string().refine(value => ROLES.some(role => role.value === value), 'Invalid role').optional(),
-  tagLevels: z.record(z.string(), z.number().min(1).max(5)).optional()
+  tagLevels: z.record(z.string(), z.number().min(1).max(5)).optional(),
+  // Empty string clears the link; a real Discord ID is a 15-25 digit snowflake.
+  discordUserId: z.union([z.string().regex(/^\d{15,25}$/), z.literal('')]).optional()
 })
 
 function roleLabel(value: string): string {
@@ -29,6 +31,7 @@ export default defineEventHandler(async (event) => {
     score: body.score ?? old.score,
     role: (body.role as typeof old.role) ?? old.role,
     tagLevels: body.tagLevels ?? old.tagLevels,
+    discordUserId: body.discordUserId !== undefined ? (body.discordUserId || undefined) : old.discordUserId,
     updatedAt: new Date().toISOString()
   }
 

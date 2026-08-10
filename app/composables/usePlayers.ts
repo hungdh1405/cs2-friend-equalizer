@@ -5,6 +5,7 @@ export interface PlayerInput {
   score: number
   role: Role
   tagLevels?: Record<string, number>
+  discordUserId?: string
 }
 
 export function usePlayers() {

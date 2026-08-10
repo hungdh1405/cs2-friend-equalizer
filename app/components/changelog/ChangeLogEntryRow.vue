@@ -28,8 +28,10 @@ const tone = computed(() => FIELD_TONE[props.entry.field] ?? 'text-tag-neutral-5
     </p>
     <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
       <span :class="cn('neon-text', tone)">{{ formattedAt }}</span>
-      <span>·</span>
-      <span>{{ entry.ip }}</span>
+      <template v-if="entry.ip">
+        <span>·</span>
+        <span>{{ entry.ip }}</span>
+      </template>
     </div>
   </div>
 </template>

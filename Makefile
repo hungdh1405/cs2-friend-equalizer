@@ -29,8 +29,14 @@ setup: ## One-time Cloudflare provisioning: create the KV namespace + push secre
 	@test -f .env || (echo ".env not found — copy .env.example to .env first."; exit 1)
 	@PIN=$$(grep '^NUXT_APP_PIN=' .env | cut -d= -f2); \
 	SESSION_PW=$$(grep '^NUXT_SESSION_PASSWORD=' .env | cut -d= -f2); \
+	BOT_TOKEN=$$(grep '^NUXT_DISCORD_BOT_TOKEN=' .env | cut -d= -f2); \
+	PUBLIC_KEY=$$(grep '^NUXT_DISCORD_PUBLIC_KEY=' .env | cut -d= -f2); \
+	CHANNEL_ID=$$(grep '^NUXT_DISCORD_CHANNEL_ID=' .env | cut -d= -f2); \
 	echo "$$PIN" | npx wrangler secret put NUXT_APP_PIN --config $(WRANGLER_CONFIG); \
-	echo "$$SESSION_PW" | npx wrangler secret put NUXT_SESSION_PASSWORD --config $(WRANGLER_CONFIG)
+	echo "$$SESSION_PW" | npx wrangler secret put NUXT_SESSION_PASSWORD --config $(WRANGLER_CONFIG); \
+	echo "$$BOT_TOKEN" | npx wrangler secret put NUXT_DISCORD_BOT_TOKEN --config $(WRANGLER_CONFIG); \
+	echo "$$PUBLIC_KEY" | npx wrangler secret put NUXT_DISCORD_PUBLIC_KEY --config $(WRANGLER_CONFIG); \
+	echo "$$CHANNEL_ID" | npx wrangler secret put NUXT_DISCORD_CHANNEL_ID --config $(WRANGLER_CONFIG)
 	@echo "Cloudflare setup complete. Run 'make deploy' next."
 
 deploy: build ## Build then deploy to Cloudflare Workers

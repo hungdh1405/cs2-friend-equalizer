@@ -1,11 +1,24 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
 
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn-vue/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Orbitron/Rajdhani (this app's display/body faces) are loaded from Google Fonts as a plain
+   Latin subset — no Vietnamese diacritics included, and neither face is designed with full
+   Vietnamese glyph coverage regardless. Rather than fighting per-glyph fallback (which mixes
+   two visually mismatched typefaces mid-word), any element whose content is marked
+   lang="vi" — and everything inside it — uses a plain system sans-serif instead, which has
+   complete, correctly-shaped Vietnamese coverage. Deliberately unlayered (not inside any
+   Tailwind @layer) so it wins over the .font-heading/.font-sans utility classes regardless
+   of where those are applied, including inside shared components like DialogTitle that
+   always apply their own font-heading class. */
+:lang(vi), :lang(vi) * {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+}
 
 @theme inline {
     --font-sans: 'Rajdhani', sans-serif;
@@ -76,6 +89,10 @@
 }
 
 :root {
+    /* Without this, native form controls (the datetime-local input's calendar/time popup,
+       scrollbars, etc.) render in the browser's light-mode UI regardless of the app's own
+       theme — a jarring white popup against this dark-by-default app. */
+    color-scheme: light;
     --background: oklch(0.98 0.004 240);
     --foreground: oklch(0.18 0.02 250);
     --card: oklch(1 0 0);
@@ -143,6 +160,7 @@
    tier/tag semantics (gold=S, orange=A, yellow=B, green=C, blue=D) but pushed to
    near-maximum chroma so they read as "glowing" against the near-black background. */
 .dark {
+    color-scheme: dark;
     --background: oklch(0.14 0.018 260);
     --foreground: oklch(0.94 0.015 210);
     --card: oklch(0.19 0.025 260);

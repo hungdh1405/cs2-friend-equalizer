@@ -1,9 +1,12 @@
-import type { ChangeLogEntry, Player, Tag } from '#shared/types'
+import type { ChangeLogEntry, GameEvent, Host, Player, Tag } from '#shared/types'
 
 const ROSTER_KEY = 'roster:index'
 const TAGS_KEY = 'tags'
 const CHANGELOG_KEY = 'changelog:index'
 const CHANGELOG_LIMIT = 500
+const EVENT_KEY = 'event:current'
+const HOSTS_KEY = 'hosts:index'
+const VOTE_LOG_FIELDS = new Set<ChangeLogEntry['field']>(['voteCast', 'voteDeclined', 'eventCreated'])
 
 function kv() {
   return useStorage('kv')
@@ -50,6 +53,50 @@ export async function appendChangeLog(entry: ChangeLogEntry): Promise<void> {
 
 export async function clearChangeLog(): Promise<void> {
   await kv().removeItem(CHANGELOG_KEY)
+}
+
+/** The existing `appendChangeLog` only caps by count (500) — vote-type entries additionally
+ * need to be pruned by *age* (~1 month retention), while every other entry type is left
+ * alone. Called from the daily host-reminder scheduled task, not on every write. */
+export async function pruneVoteChangeLog(olderThanMs: number): Promise<void> {
+  const log = await getChangeLog()
+  const cutoff = Date.now() - olderThanMs
+  const pruned = log.filter(entry => !VOTE_LOG_FIELDS.has(entry.field) || new Date(entry.at).getTime() >= cutoff)
+  if (pruned.length !== log.length) await kv().setItem(CHANGELOG_KEY, pruned)
+}
+
+export async function getCurrentEvent(): Promise<GameEvent | null> {
+  const event = await kv().getItem<GameEvent>(EVENT_KEY)
+  // Defensive default for events created before `declinedVoters` existed — never persisted
+  // back here, just normalized at the read boundary (same convention as `getRoster`'s `?? []`).
+  return event ? { ...event, declinedVoters: event.declinedVoters ?? [] } : event
+}
+
+export async function setCurrentEvent(event: GameEvent): Promise<void> {
+  await kv().setItem(EVENT_KEY, event)
+}
+
+export async function getHosts(): Promise<Host[]> {
+  return (await kv().getItem<Host[]>(HOSTS_KEY)) ?? []
+}
+
+export async function setHosts(hosts: Host[]): Promise<void> {
+  await kv().setItem(HOSTS_KEY, hosts)
+}
+
+export async function addHost(host: Host): Promise<Host[]> {
+  const hosts = await getHosts()
+  if (hosts.some(existing => existing.discordUserId === host.discordUserId)) return hosts
+  const updated = [...hosts, host]
+  await setHosts(updated)
+  return updated
+}
+
+export async function removeHost(discordUserId: string): Promise<Host[]> {
+  const hosts = await getHosts()
+  const updated = hosts.filter(host => host.discordUserId !== discordUserId)
+  await setHosts(updated)
+  return updated
 }
 
 export interface ThrottleRecord {

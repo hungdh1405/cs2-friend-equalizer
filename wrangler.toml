@@ -14,3 +14,9 @@ id = "a22126ce0f3a4fd59ffcd54eb62b3102"
 [[routes]]
 pattern = "csgo2.doxanh.dev"
 custom_domain = true
+
+# Must be kept in sync BY HAND with nuxt.config.ts's nitro.scheduledTasks — Nitro does not
+# generate this from that config. 0 3 = 10:00 Host reminder; 0 5 / 0 9 / 0 13 = 12:00 / 16:00
+# / 20:00 vote reminders (all Asia/Ho_Chi_Minh, UTC+7, no DST). 4 of the free plan's 5 slots.
+[triggers]
+crons = ["0 3 * * *", "0 5 * * *", "0 9 * * *", "0 13 * * *"]
