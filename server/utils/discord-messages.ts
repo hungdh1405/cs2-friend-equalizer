@@ -118,94 +118,100 @@ export const VOTE_REMINDER_ENOUGH = [
   '👑 Trận chiến tuần này đã có đủ quân, giờ chỉ còn đếm ngày xung trận: {link}'
 ]
 
-// The ≥10-votes team-split announcement, listing both generated teams.
+// The ≥10-votes team-split announcement, listing both generated teams. Hero/warrior tone,
+// consistent with the reminder pools above (see decisions log #77 — this pool, plus
+// NEED_DISCORD_LINK/EVENT_CANCELED/EVENT_CREATED below, were missed in the first retone pass).
 export const TEAM_READY = [
-  '🎉 Đã đủ người tham gia! Team đã được chia ngẫu nhiên, sẵn sàng chiến thôi:\n{teams}',
-  '🏆 Full slot rồi! Đây là đội hình được chia cho trận này:\n{teams}',
-  '🎮 Đủ người rồi anh em! Hai team đã lên sẵn:\n{teams}',
-  '🔥 Kèo đã đủ, chia team xong luôn! Xem đội hình:\n{teams}',
-  '🎉 Chốt đội hình cho trận tuần này:\n{teams}',
-  '🏆 Team đã sẵn sàng, chuẩn bị vào trận:\n{teams}',
-  '🎮 Đã đủ {count} người, hai team được chia như sau:\n{teams}',
-  '🔥 Danh sách team đã có, không cần chờ thêm nữa:\n{teams}',
-  '🎉 Trận này chính thức đủ người, đội hình như sau:\n{teams}',
-  '🏆 Đội hình ngẫu nhiên cho trận tuần này đã lên:\n{teams}',
-  '🎮 Full team rồi, chia đội xong xuôi:\n{teams}',
-  '🔥 Anh em xem đội hình được chia cho kèo này nhé:\n{teams}',
-  '🎉 Đủ người, đủ đội, chỉ còn chờ ngày đấu:\n{teams}',
-  '🏆 Team đã chốt, giờ chỉ cần chiến thắng thôi:\n{teams}',
-  '🎮 Đội hình đã sẵn sàng cho trận đấu tuần này:\n{teams}',
-  '🔥 Chia team xong, ai cũng có phần trong trận này:\n{teams}',
-  '🎉 Team được chia tự động, công bằng cho cả hai bên:\n{teams}',
-  '🏆 Đây là hai đội cho trận đấu sắp tới:\n{teams}',
-  '🎮 Sẵn sàng chưa? Team đã lên, chờ gì mà không luyện tay:\n{teams}',
-  '🔥 Đủ người tham gia, đội hình được chốt như sau:\n{teams}',
-  '🎉 Không cần chờ thêm, đội hình chính thức đã có:\n{teams}',
-  '🏆 Trận đấu tuần này đã có đủ hai team so kè:\n{teams}',
-  '🎮 Chia đội xong, giờ chỉ còn đếm ngày ra trận:\n{teams}',
-  '🔥 Cân bằng lực lượng đã hoàn tất cho cả hai bên:\n{teams}',
-  '🎉 Đội hình được xáo trộn ngẫu nhiên nhưng vẫn cân tài cân sức:\n{teams}',
-  '🏆 Team A và Team B đã điểm danh đầy đủ:\n{teams}',
-  '🎮 Đủ 2 đội cho trận cầu tuần này, xem ai chung team với ai:\n{teams}',
-  '🔥 Không khí chiến đấu đã lên, đội hình đã chốt:\n{teams}',
-  '🎉 Random đội hình xong, giờ chỉ còn thi đấu hết mình:\n{teams}',
-  '🏆 Hai team ngang tài ngang sức đã được lập:\n{teams}'
+  '🏆 Binh đoàn đã đủ quân! Hai đội chiến binh được chia như sau:\n{teams}',
+  '⚔️ Đội hình chiến đấu đã hoàn tất — các anh hùng đã vào vị trí:\n{teams}',
+  '🛡️ {count} chiến binh đã được chia thành hai đội quân:\n{teams}',
+  '👑 Danh sách anh hùng cho trận chiến tuần này:\n{teams}',
+  '🔥 Hai binh đoàn đã sẵn sàng đối đầu:\n{teams}',
+  '🚩 Đội hình xung trận đã được chốt:\n{teams}',
+  '🏆 Chiến binh đã tập hợp đủ {count} người, đội hình chia như sau:\n{teams}',
+  '⚔️ Hai đội quân ngang tài ngang sức đã được lập:\n{teams}',
+  '🛡️ Trận chiến sắp bắt đầu — đây là đội hình của bạn:\n{teams}',
+  '👑 Các anh hùng đã được phân chia vào hai chiến tuyến:\n{teams}',
+  '🔥 Đội hình chiến đấu đã lên, chuẩn bị xung trận:\n{teams}',
+  '🚩 Binh đoàn đã được chia đều sức mạnh:\n{teams}',
+  '🏆 {count} chiến binh, hai đội hình đáng gờm đã hình thành:\n{teams}',
+  '⚔️ Đã đến giờ ra trận — đội hình như sau:\n{teams}',
+  '🛡️ Hai chiến tuyến đã được thiết lập cho trận này:\n{teams}',
+  '👑 Đội hình anh hùng đã sẵn sàng chiến đấu:\n{teams}',
+  '🔥 Không cần chờ thêm, binh đoàn đã được chia xong:\n{teams}',
+  '🚩 Đội quân của bạn đã được chỉ định:\n{teams}',
+  '🏆 Chiến binh đã điểm danh đủ, đội hình chốt như sau:\n{teams}',
+  '⚔️ Hai đội chiến binh ngang sức đã được lập ra:\n{teams}',
+  '🛡️ Cân bằng lực lượng hoàn tất cho cả hai binh đoàn:\n{teams}',
+  '👑 Vinh quang đang chờ — đội hình chiến đấu như sau:\n{teams}',
+  '🔥 Đội hình đã được random ngẫu nhiên nhưng vẫn cân tài cân sức:\n{teams}',
+  '🚩 Chiến trường đã chia phe, xem bạn thuộc đội nào:\n{teams}',
+  '🏆 {count} anh hùng, hai đội quân đã sẵn sàng đối đầu:\n{teams}',
+  '⚔️ Đội hình chiến đấu tuần này đã được ấn định:\n{teams}',
+  '🛡️ Hai binh đoàn đã điểm danh đầy đủ:\n{teams}',
+  '👑 Chiến binh nào cũng có phần trong trận này — đội hình:\n{teams}',
+  '🔥 Sẵn sàng chưa chiến binh? Đội hình đã lên:\n{teams}',
+  '🚩 Đội hình cho trận chiến sắp tới đã được chốt:\n{teams}'
 ]
 
 // Some voters aren't linked to a roster Player yet — announced instead of TEAM_READY, and
-// naming who needs linking.
+// naming who needs linking. Stays mostly operational (this is a technical nudge, not hype),
+// with a light hero-tone touch for consistency ("chiến binh"/"đội hình" instead of generic
+// "người"/"team").
 export const NEED_DISCORD_LINK = [
-  '⚠️ {hosts} ơi, đã đủ {count} người tham gia nhưng chưa thể chia team vì còn thiếu liên kết Discord cho: {names}. Vào trang quản lý cập nhật giúp nhé.',
-  '⚠️ Đủ người rồi, nhưng {names} chưa được liên kết với hồ sơ trên hệ thống. {hosts} cập nhật giúp để chia team nhé.',
-  '⚠️ {hosts}, cần liên kết Discord ID cho {names} thì mới chia được đội hình. Giúp cập nhật sớm nhé!',
-  '⚠️ Đã đủ số lượng tham gia, nhưng còn thiếu thông tin của {names} trên hệ thống. {hosts} vào cập nhật giúp.',
-  '⚠️ {hosts} ơi, {names} chưa có Discord ID trong hồ sơ nên chưa random được team. Cập nhật giúp nhé.',
-  '⚠️ Đủ {count} người tham gia rồi, nhưng thiếu liên kết cho {names}. {hosts} bổ sung giúp để chia đội.',
-  '⚠️ {hosts}, hệ thống cần Discord ID của {names} để tính đúng trình khi chia team.',
-  '⚠️ Sắp có team rồi, chỉ còn thiếu liên kết hồ sơ cho {names}. {hosts} cập nhật giúp nhé.'
+  '⚠️ {hosts} ơi, binh đoàn đã đủ {count} chiến binh nhưng chưa thể chia đội vì thiếu liên kết Discord cho: {names}. Cập nhật giúp nhé.',
+  '⚠️ Đủ quân rồi, nhưng {names} chưa có hồ sơ chiến binh trên hệ thống. {hosts} cập nhật giúp để chia đội.',
+  '⚠️ {hosts}, cần liên kết Discord ID cho {names} thì mới sắp xếp được đội hình. Giúp cập nhật sớm nhé!',
+  '⚠️ Đã đủ {count} chiến binh, nhưng còn thiếu thông tin của {names}. {hosts} vào cập nhật giúp.',
+  '⚠️ {hosts} ơi, {names} chưa có Discord ID trong hồ sơ nên chưa thể vào đội hình. Cập nhật giúp nhé.',
+  '⚠️ Đủ {count} người tham chiến rồi, nhưng thiếu liên kết cho {names}. {hosts} bổ sung giúp để chia đội.',
+  '⚠️ {hosts}, hệ thống cần Discord ID của {names} để sắp xếp đúng vị trí trong đội hình.',
+  '⚠️ Sắp có đội hình rồi, chỉ còn thiếu liên kết hồ sơ cho {names}. {hosts} cập nhật giúp nhé.'
 ]
 
 // A Host canceled the current event — rare, so a smaller pool is fine, same as
 // NEED_DISCORD_LINK above. Posted to the channel and the event message is edited to remove
-// the vote buttons (see discord-embeds.ts / events/current.delete.ts).
+// the vote buttons (see discord-embeds.ts / events/current.delete.ts). "Retreat"/stand-down
+// framing rather than hype, matching the mood of a canceled battle.
 export const EVENT_CANCELED = [
-  '📢 Sự kiện tuần này đã bị hủy. Hẹn mọi người vào tuần sau nhé!',
-  '❌ Kèo tuần này không diễn ra — sự kiện đã bị hủy.',
-  '📢 Đã hủy sự kiện tuần này. Theo dõi kênh để biết lịch mới nhé.',
-  '❌ Rất tiếc, trận tuần này bị hủy. Hẹn gặp lại ở kèo sau.',
-  '📢 Sự kiện đã được hủy bởi Host. Không cần vote nữa nhé.',
-  '❌ Kèo tuần này đã dừng lại giữa đường. Chờ thông báo mới.'
+  '🏳️ Trận chiến tuần này đã bị hủy. Binh đoàn rút quân, hẹn tái chiến tuần sau!',
+  '🚩 Chiến dịch tuần này không diễn ra — lệnh xuất quân đã bị hủy bỏ.',
+  '🏳️ Host đã hủy trận chiến tuần này. Cất vũ khí, chờ hồi kèn lần sau nhé.',
+  '⚔️ Rất tiếc, trận chiến tuần này bị hủy giữa đường. Hẹn gặp lại chiến binh ở kèo sau.',
+  '🚩 Sự kiện đã bị hủy bởi Host — không cần tập hợp binh đoàn nữa.',
+  '🏳️ Chiến dịch tuần này tạm gác lại. Theo dõi kênh để biết ngày ra trận mới.'
 ]
 
 // Posted right after a Host creates the week's event — a hype announcement distinct from
 // the embed+buttons message itself (same pattern as vote-cast/removed getting their own
 // message on top of the live-updating embed). Credits/tags *all* current Hosts — the
 // website's shared-PIN create flow doesn't know which specific Host clicked the button, so
-// rather than tag no one, every Host gets credited/pinged collectively.
+// rather than tag no one, every Host gets credited/pinged collectively. Hero/commander tone,
+// matching HOST_REMINDER — a Host "declares battle," they don't just fill out a form.
 export const EVENT_CREATED = [
-  '🎉 {hosts} đã lên kèo tuần này: {startsAt}! Vào vote ngay: {link}',
-  '📅 {hosts} vừa tạo sự kiện mới cho tuần này — {startsAt}. Vào vote nhé: {link}',
-  '🔥 {hosts} chốt kèo rồi! Trận tuần này diễn ra lúc {startsAt}. Bấm nút vote ở trên nhé.',
-  '📢 {hosts} vừa tạo sự kiện tuần này: {startsAt}. Xem chi tiết và vote tại: {link}',
-  '🎮 {hosts} đã setup kèo mới — {startsAt}. Đừng quên vote nha anh em!',
-  '📅 {hosts} lên lịch cho tuần này rồi: {startsAt}. Ai đi được thì tham gia sớm nhé.',
-  '🔥 {hosts} chốt giờ đấu tuần này: {startsAt}! Vote ngay ở tin nhắn phía trên.',
-  '🎉 Cảm ơn {hosts} đã tạo kèo! {startsAt}. Xem thêm và xác nhận tham gia tại: {link}',
-  '📢 {hosts} thông báo: sự kiện tuần này sẽ diễn ra vào {startsAt}. Vào vote thôi!',
-  '🎮 {hosts} đã có lịch tuần này: {startsAt}. Ai chưa vote thì tranh thủ nhé.',
-  '🔥 {hosts} setup kèo cho {startsAt} rồi. Chờ gì mà chưa vote?',
-  '📅 {hosts} vừa tạo sự kiện mới: {startsAt}. Chi tiết đầy đủ tại: {link}',
-  '🎉 {hosts} đã chốt kèo — {startsAt}! Ai tham gia thì lên tiếng nhé.',
-  '📢 {hosts} vừa lên lịch cho tuần này, diễn ra lúc {startsAt}.',
-  '🎮 {hosts} đã setup kèo tuần này: {startsAt}. Vote ngay để không bị quên!',
-  '🔥 {hosts} hẹn mọi người vào {startsAt} — sự kiện đã được tạo, vote thôi!',
-  '📅 {hosts} vừa lên lịch trận tuần này: {startsAt}. Xem ai đã tham gia tại: {link}',
-  '🎉 {hosts} vừa chốt xong lịch — {startsAt}! Nhanh tay vote để giữ chỗ.',
-  '📢 {hosts} thông báo kèo tuần này chính thức lên sóng vào {startsAt}.',
-  '🎮 {hosts} đã có lịch chơi tuần này: {startsAt}. Xác nhận tham gia ở nút phía trên nhé.',
-  '🔥 {hosts} báo tin: trận tuần này diễn ra lúc {startsAt} — đừng bỏ lỡ, vote ngay!',
-  '📅 {hosts} đã lên kế hoạch cho tuần này: {startsAt}. Chi tiết tại: {link}',
-  '🎉 {hosts} vừa tạo kèo ngon: {startsAt}. Vào vote để chốt số lượng nhé!',
-  '📢 Cập nhật từ {hosts}: sự kiện tuần này sẽ bắt đầu lúc {startsAt}.',
-  '🎮 {hosts} lên lịch xong rồi — {startsAt}! Ai tham gia thì bấm nút vote nhé.'
+  '⚔️ {hosts} đã tuyên chiến! Trận chiến tuần này diễn ra lúc {startsAt}. Chiến binh nào sẵn sàng thì vào vote: {link}',
+  '📯 {hosts} vừa ra lệnh xuất quân — {startsAt}! Vào vote để gia nhập binh đoàn: {link}',
+  '🚩 Cờ lệnh đã được giương cao! {hosts} công bố trận chiến lúc {startsAt}. Vote ngay: {link}',
+  '🛡️ {hosts} đã triệu tập binh đoàn cho {startsAt}! Xung trận cùng nhau, vote tại: {link}',
+  '⚔️ Chiến trường đã được mở ra bởi {hosts} — {startsAt}. Chiến binh vào vote ngay: {link}',
+  '📯 Tướng quân {hosts} tuyên bố: trận chiến sẽ diễn ra lúc {startsAt}! Vote để tham chiến: {link}',
+  '🔥 {hosts} đã thổi kèn xung trận cho {startsAt}! Đừng để binh đoàn thiếu bạn, vote ngay: {link}',
+  '🚩 {hosts} chốt ngày ra trận: {startsAt}. Chiến binh nào cũng cần góp mặt, vote tại: {link}',
+  '⚔️ Trận chiến tuần này đã được {hosts} ấn định — {startsAt}! Vào vote để nhập ngũ: {link}',
+  '🛡️ {hosts} đã lên kế hoạch chiến đấu cho {startsAt}. Chiến binh tập hợp và vote nhé: {link}',
+  '📯 Này chiến binh, {hosts} vừa công bố trận chiến lúc {startsAt}! Vote ngay: {link}',
+  '🔥 {hosts} đã khai chiến cho tuần này — {startsAt}! Ai sẵn sàng ra trận thì vote: {link}',
+  '🚩 Lệnh xuất quân đã ban: {hosts} ấn định {startsAt} là giờ chiến đấu. Vote tại: {link}',
+  '⚔️ {hosts} vừa mở ra một trận chiến mới — {startsAt}. Hãy vote để cùng ra trận: {link}',
+  '🛡️ Binh đoàn ơi, {hosts} đã chốt giờ xung trận: {startsAt}! Vào vote ngay: {link}',
+  '📯 {hosts} tuyên bố chiến dịch tuần này bắt đầu lúc {startsAt}. Chiến binh vote để tham gia: {link}',
+  '🔥 Ngọn lửa chiến tranh đã được {hosts} nhóm lên — {startsAt}! Vote ngay để không bị bỏ lại: {link}',
+  '🚩 {hosts} đã cắm cờ báo hiệu trận chiến lúc {startsAt}. Chiến binh vào vote: {link}',
+  '⚔️ Một trận chiến mới đã được {hosts} khởi xướng — {startsAt}! Xem chi tiết và vote: {link}',
+  '🛡️ {hosts} đã sẵn sàng dẫn quân vào {startsAt}. Chiến binh nào theo cùng thì vote nhé: {link}',
+  '📯 Này các chiến binh, {hosts} đã tuyên chiến cho {startsAt}! Đăng ký ra trận bằng cách vote: {link}',
+  '🔥 {hosts} chốt trận đánh lớn vào {startsAt}! Vào vote để giành một chỗ trong binh đoàn: {link}',
+  '🚩 {hosts} đã công bố thời điểm xung trận: {startsAt}. Vote ngay để không lỡ hẹn: {link}',
+  '⚔️ Trống trận đã nổi lên nhờ {hosts} — {startsAt} là giờ ra quân! Vote tại: {link}',
+  '🛡️ {hosts} đã chuẩn bị chiến trường cho {startsAt}. Chiến binh tập hợp, vote ngay: {link}'
 ]
