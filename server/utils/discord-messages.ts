@@ -4,190 +4,118 @@
 // server/utils/discord-notify.ts using the same `{key}` syntax as changelog.ts's `render()`.
 // Picked pseudo-randomly per message so the channel doesn't read like a repetitive bot log.
 
-// Voter is linked to a roster Player with S or A tier — distinctly hype-ier wording that
-// name-drops their tier, framing them as a difference-maker for the match.
-export const VOTE_CAST_VIP = [
-  '🔥 {name} (hạng {tier}) vừa xác nhận tham gia! Có {name} là kèo này auto lên trình.',
-  '⭐ Tin nóng: {name} - hạng {tier} - đã vào kèo! Đối thủ nghe tên chắc run tay.',
-  '💪 {name} hạng {tier} chốt tham gia rồi! Cầm chắc phần thắng trong tay.',
-  '🎯 VIP xuất hiện: {name} (hạng {tier}) đã in team! Trận này chất lượng tăng vọt.',
-  '👑 {name} - top hạng {tier} - vừa tham gia! Anh em còn chờ gì nữa, vào nốt đi.',
-  '🚀 {name} hạng {tier} đã bấm nút! Có carry rồi, lo gì nữa.',
-  '🏆 Báo tin vui: {name} (hạng {tier}) tham gia trận này! Kèo thơm không tưởng.',
-  '💎 Hàng xịn về: {name} hạng {tier} đã xác nhận! Team nào có {name} coi như nửa thắng.',
-  '⚡ {name} - hạng {tier} - tham gia rồi! Tốc độ và sức mạnh đã hội tụ.',
-  '🔥 Không phải dạng vừa: {name} hạng {tier} vừa vào kèo. Đối thủ nên lo lắng.',
-  '🎮 {name} (hạng {tier}) đã sẵn sàng! Có tay to như vầy, trận này khó thua.',
-  '👑 Ông trùm {name} hạng {tier} góp mặt! Kèo này chốt luôn không cần suy nghĩ.',
-  '🌟 {name} hạng {tier} tham gia làm trận đấu sáng bừng lên. Ai còn chưa vào thì nhanh tay.',
-  '💥 Bomb tấn: {name} (hạng {tier}) đã in! Đối thủ chuẩn bị tinh thần đi là vừa.',
-  '🔥 {name} hạng {tier} chốt đơn! Team này auto có động lực chiến hết mình.',
-  '🎯 Chuẩn không cần chỉnh: {name} - hạng {tier} - đã tham gia. Kèo ngon phải nắm bắt.',
-  '👑 {name} hạng {tier} xuất trận! Nghe tên là biết trận này nghiêm túc rồi.',
-  '💪 Cỗ máy chiến thắng {name} (hạng {tier}) đã vào kèo! Ai cùng team quá may mắn.',
-  '⭐ {name} hạng {tier} tham gia - báo động đỏ cho mọi đối thủ trong server.',
-  '🚀 {name} (hạng {tier}) đã xác nhận! Đẳng cấp là mãi mãi, kèo này phải xem.',
-  '🔥 Săn kèo VIP: {name} hạng {tier} vừa vào team, khỏi cần lo skill nữa.',
-  '👑 Cả server rung chuyển: {name} hạng {tier} chính thức tham gia trận này.',
-  '💎 Ngọc quý xuất hiện: {name} (hạng {tier}) đã in kèo. Trận này đáng để hóng.',
-  '⚡ Tia sét {name} hạng {tier} vừa đánh xuống danh sách tham gia! Đối thủ lo là đúng.',
-  '🎯 {name} hạng {tier} khóa slot thành công! Kèo này chốt chất từ đây.',
-  '🏆 Nhà vô địch tiềm năng {name} (hạng {tier}) đã tham gia. Chờ gì mà chưa hype lên.',
-  '🔥 Cấp độ {tier} như {name} mà cũng tham gia thì kèo này auto căng.',
-  '💪 {name} hạng {tier} nhận lời tham chiến! Cẩn thận đối thủ, cẩn thận.',
-  '🌟 Ánh sáng từ hạng {tier} {name} vừa chiếu vào trận đấu tuần này.',
-  '👑 {name} hạng {tier} chính thức góp mặt - một chữ ký đáng giá cho team nào có được.'
-]
-
-// Everyone else — B/C/D tier, or not linked to a roster profile at all. Casual, friendly.
-export const VOTE_CAST_NORMAL = [
-  '✅ {name} đã tham gia trận này rồi nha.',
-  '👍 {name} vào kèo! Cảm ơn đã join.',
-  '🎮 {name} xác nhận tham gia. Còn ai nữa không?',
-  '✅ Ghi nhận: {name} chơi trận này.',
-  '👋 {name} đã bấm nút tham gia rồi đó.',
-  '🙌 {name} vào team! Full slot còn xa không ta.',
-  '✅ {name} in kèo. Cùng chờ đủ người thôi.',
-  '🎯 {name} đã tham gia. Kèo càng đông càng vui.',
-  '👍 Thêm một chân: {name} tham gia trận này.',
-  '✅ {name} chốt tham gia rồi, khỏi lo thiếu người.',
-  '🙋 {name} giơ tay tham gia! Cảm ơn nhiệt tình.',
-  '✅ {name} vào slot. Trận này thêm một mảnh ghép.',
-  '👋 Chào {name}, đã ghi nhận bạn tham gia trận này.',
-  '🎮 {name} sẵn sàng chiến! Đã có mặt trong danh sách.',
-  '✅ {name} tham gia thành công. Đợi thêm vài người nữa.',
-  '👍 {name} in! Kèo này đang dần đủ người.',
-  '🙌 {name} đã tham gia. Cố lên anh em, còn thiếu vài suất.',
-  '✅ Nhận diện: {name} chơi trận tuần này.',
-  '🎯 {name} tham gia rồi đó, ai chưa vào thì nhanh tay.',
-  '👋 {name} đã có mặt trong danh sách tham gia.',
-  '✅ {name} xác nhận đi trận. Cảm ơn bạn nhé.',
-  '🙌 Cảm ơn {name} đã dành thời gian tham gia trận này.',
-  '✅ {name} có mặt! Danh sách đang dài thêm ra.',
-  '👍 {name} chốt kèo. Một suất nữa đã được lấp đầy.',
-  '🎮 {name} đã bấm tham gia, hẹn gặp trong trận đấu.',
-  '✅ {name} vào danh sách rồi, cứ yên tâm chuẩn bị nhé.',
-  '👋 Xin chào {name}, rất vui vì bạn tham gia trận này.',
-  '🙋 {name} góp mặt! Trận đấu thêm phần rôm rả.',
-  '✅ {name} đã tham gia, mong sớm đủ người để chốt kèo.',
-  '🎯 Slot mới đã có chủ: {name} tham gia trận này.'
-]
-
-// Someone clicked "Không tham gia được" — no VIP distinction. Warm and encouraging on
-// purpose, never guilt-tripping: they're not obligated to play, and a "miss you, see you
-// next time" tone keeps the channel friendly. Once declined, they're excluded from future
-// vote-reminder tags for this event (see server/tasks/discord/voteReminder.ts) — this is the
-// only message they'll get about it, so it should send them off on a good note.
-export const VOTE_DECLINED = [
-  '💙 {name} tuần này không tham gia được. Hẹn gặp lại ở kèo sau nhé!',
-  '👋 {name} vắng mặt trận này. Nhớ bạn rồi, mong tuần sau có mặt!',
-  '🍀 {name} bận rồi, thôi để tuần sau chiến tiếp. Giữ sức khỏe nhé!',
-  '💙 Tiếc quá, {name} không đi được kèo này. Hẹn trận sau nha!',
-  '🌟 {name} nghỉ trận này. Cảm ơn đã báo trước, hẹn gặp lại sớm!',
-  '👋 Không có {name} trận này buồn thật, nhưng hẹn tuần sau đông đủ nhé.',
-  '💙 {name} tạm vắng kèo này. Mong mọi thứ ổn, chờ bạn quay lại!',
-  '🤗 {name} không tham gia được lần này, không sao cả — kèo sau nhớ ghé nha!',
-  '🍀 Ghi nhận {name} nghỉ trận này. Chúc bạn mọi việc thuận lợi!',
-  '👋 {name} báo bận rồi, tuần sau ráng sắp xếp tham gia nhé!',
-  '💙 Thiếu {name} trận này nhưng không sao, hẹn gặp ở kèo tới!',
-  '🌟 {name} vắng mặt lần này. Cảm ơn đã cho biết sớm, hẹn lần sau!',
-  '🤗 {name} nghỉ kèo này. Mong bạn nghỉ ngơi tốt, hẹn tuần sau chiến!',
-  '💙 {name} không đi được trận này, tụi mình sẽ nhớ bạn đó!',
-  '👋 Được rồi {name}, hẹn kèo sau vậy nhé. Chúc mọi thứ suôn sẻ!',
-  '🍀 {name} báo không tham gia được. Cảm ơn đã cho biết, hẹn gặp lại!',
-  '🌟 {name} tạm nghỉ trận này. Đội hình sẽ chờ bạn ở tuần sau!',
-  '💙 Không có {name} thì hơi thiếu vui, nhưng hẹn kèo tới nha!',
-  '🤗 {name} vắng mặt lần này rồi. Mong bạn ổn, hẹn sớm gặp lại!',
-  '👋 {name} không tham gia được, ghi nhận rồi. Tuần sau đợi bạn nhé!',
-  '💙 {name} nghỉ trận này. Cảm ơn đã báo, hy vọng sớm thấy bạn lại!',
-  '🍀 Rất tiếc thiếu {name} kỳ này, nhưng chắc chắn sẽ có kèo sau!',
-  '🌟 {name} bận việc riêng rồi. Không sao, hẹn gặp ở trận kế tiếp!',
-  '🤗 {name} không đi được kèo này. Mong bạn khỏe, hẹn tuần sau nhé!',
-  '💙 Cảm ơn {name} đã báo sớm. Kèo sau nhớ tham gia lại nha!',
-  '👋 {name} vắng trận này, nhưng anh em vẫn luôn chờ bạn quay lại.',
-  '🍀 {name} tạm gác kèo này. Chúc mọi điều tốt lành, hẹn lần sau!',
-  '🌟 Thiếu {name} lần này thật đó, mong tuần sau có bạn góp mặt!',
-  '🤗 {name} không tham gia được, không vấn đề gì cả. Hẹn gặp lại sớm!',
-  '💙 {name} nghỉ trận tuần này. Cảm ơn đã cho biết, chúc bạn vui vẻ!'
-]
-
-// Mentions all current Hosts, reminds them to schedule this week's event.
+// Mentions all current Hosts, reminds them to schedule this week's event. Hero/commander
+// framing per explicit request ("fighting tones, fighter tones, heroes tones") — a Host is
+// the one who "declares battle"/rallies the squad, not just an admin creating a form entry.
 export const HOST_REMINDER = [
-  '📅 {hosts} ơi, tuần này chưa có kèo nào được tạo cả. Lên lịch giúp mọi người nhé!',
-  '⏰ Nhắc nhẹ {hosts}: tuần này còn thiếu một trận đấu đó. Tạo kèo sớm cho anh em vote đi.',
-  '📅 {hosts} chưa set kèo cho tuần này, mọi người đang đợi đấy.',
-  '⏰ Này {hosts}, tuần mới rồi mà chưa thấy kèo đâu. Tạo giúp cái nào!',
-  '📅 Nhắc {hosts}: hãy tạo trận đấu cho tuần này để mọi người đăng ký tham gia.',
-  '⏰ {hosts} ơi, anh em đang ngóng kèo tuần này lắm rồi.',
-  '📅 Tuần này vẫn trống lịch. {hosts} tạo kèo giúp nhé, mọi người sẵn sàng vote luôn.',
-  '⏰ {hosts}, đến giờ tạo kèo rồi đó. Đừng để anh em chờ lâu.',
-  '📅 Chưa có trận nào cho tuần này. {hosts} setup giúp cái là mọi người vào vote ngay.',
-  '⏰ Nhắc nhở nhẹ {hosts}: kèo tuần này vẫn chưa xuất hiện trên hệ thống.',
-  '📅 {hosts} ơi, thời gian không chờ đợi ai. Tạo kèo cho tuần này đi nào.',
-  '⏰ Ping {hosts}: cần một kèo mới cho tuần này để mọi người bắt đầu vote.',
-  '📅 {hosts}, lịch tuần này đang trống trơn. Chốt ngày giờ giúp anh em với.',
-  '⏰ Này {hosts}, chưa có kèo tuần này thì lấy gì mà vote đây.',
-  '📅 {hosts} tạo kèo giúp đi, mọi người đang chờ để xác nhận tham gia.',
-  '⏰ Nhắc {hosts} lần nữa: tuần này cần một trận đấu mới nhé.',
-  '📅 {hosts} ơi, không có kèo thì cả server buồn lắm đó. Tạo giúp nào!',
-  '⏰ Đến lúc rồi {hosts}: setup trận đấu tuần này cho mọi người tham gia.',
-  '📅 {hosts}, hãy chốt ngày giờ chơi tuần này giúp anh em nhé.',
-  '⏰ Gọi {hosts}: tuần này chưa có kèo, mọi người đang chờ tin từ bạn.',
-  '📅 {hosts} setup kèo sớm nhé, để anh em còn kịp sắp xếp thời gian tham gia.',
-  '⏰ {hosts} ơi, mỗi ngày trôi qua là một ngày ít cơ hội tổ chức trận đấu hơn.',
-  '📅 Thông báo {hosts}: hệ thống chưa ghi nhận trận đấu nào cho tuần này.',
-  '⏰ {hosts}, cả nhóm đang chờ một cái kèo. Nhấn nút tạo sự kiện giúp cái.',
-  '📅 {hosts} nhớ tạo kèo tuần này nha, đừng để mọi người phải hỏi lại.',
-  '⏰ Nhắc khéo {hosts}: chưa có lịch thì anh em chẳng biết khi nào tụ tập.',
-  '📅 {hosts}, một trận đấu mới đang chờ được tạo ra từ tay bạn.',
-  '⏰ {hosts} ơi, đến hẹn lại lên - tạo kèo tuần này thôi nào.',
-  '📅 Không thấy kèo đâu cả {hosts}. Mọi người trông cả vào bạn đó.',
-  '⏰ {hosts}, tuần này im ắng quá vì chưa có trận đấu nào được lên lịch.'
+  '📯 {hosts} ơi, chiến trường tuần này vẫn chưa được khai mở. Hãy tuyên chiến giúp anh em: {link}',
+  '⚔️ Chỉ huy {hosts}, binh đoàn đang chờ lệnh xuất quân cho tuần này: {link}',
+  '🛡️ {hosts} ơi, chưa có trận chiến nào được lên kế hoạch tuần này. Triệu tập binh đoàn nhé: {link}',
+  '📯 Tướng quân {hosts}, đã đến lúc tuyên bố trận chiến tuần này rồi: {link}',
+  '🚩 {hosts}, cả binh đoàn đang ngóng lệnh xung trận. Tạo kèo giúp mọi người: {link}',
+  '⚔️ Chưa có tiếng kèn xung trận nào tuần này. {hosts} hãy khởi động cuộc chiến: {link}',
+  '🛡️ {hosts} ơi, chiến binh đang chờ chỉ huy ra lệnh tập hợp: {link}',
+  '📯 Này {hosts}, tuần mới đã đến mà chưa có trận chiến nào được công bố: {link}',
+  '🚩 {hosts}, hãy cầm cờ lệnh và mở ra trận chiến cho tuần này: {link}',
+  '⚔️ Binh đoàn vẫn đang chờ đợi. {hosts} tuyên chiến giúp anh em nhé: {link}',
+  '🛡️ {hosts} ơi, không có chỉ huy ra lệnh thì chiến binh không biết đánh ở đâu: {link}',
+  '📯 Nhắc nhẹ chỉ huy {hosts}: kèo tuần này vẫn chưa được khai màn: {link}',
+  '🚩 {hosts}, thời điểm xuất quân đang đến gần mà chưa có lệnh nào: {link}',
+  '⚔️ Này tướng quân {hosts}, binh đoàn đang chờ bạn tuyên bố ngày giờ chiến đấu: {link}',
+  '🛡️ {hosts} ơi, hãy triệu tập chiến binh cho trận đấu tuần này: {link}',
+  '📯 Không có lệnh xuất quân, binh đoàn không thể lên đường. {hosts} tạo kèo giúp: {link}',
+  '🚩 {hosts}, cả server đang chờ tiếng kèn trận chiến tuần này: {link}',
+  '⚔️ Chỉ huy {hosts} ơi, đã đến lúc vẽ ra chiến trường cho tuần này: {link}',
+  '🛡️ {hosts}, binh đoàn cần một chỉ huy ra lệnh — tạo sự kiện giúp nhé: {link}',
+  '📯 Này {hosts}, mỗi ngày trôi qua là một ngày binh đoàn chưa được triệu tập: {link}',
+  '🚩 {hosts} ơi, hãy giương cao ngọn cờ và công bố trận chiến tuần này: {link}',
+  '⚔️ Tướng quân {hosts}, thời cơ xuất quân đang chờ lệnh của bạn: {link}',
+  '🛡️ {hosts}, chiến binh đang sẵn sàng — chỉ cần bạn ra lệnh tập hợp: {link}',
+  '📯 Nhắc {hosts} lần nữa: chưa có trận chiến nào được lên kế hoạch tuần này: {link}',
+  '🚩 {hosts} ơi, hãy là người khơi mào cho trận chiến tuần này: {link}',
+  '⚔️ Không có kèo thì không có chiến thắng. {hosts} tuyên chiến giúp mọi người: {link}',
+  '🛡️ {hosts}, đã đến giờ triệu hồi binh đoàn cho tuần này rồi: {link}',
+  '📯 Này chỉ huy {hosts}, chiến trường vẫn im ắng vì chưa có lệnh xuất quân: {link}',
+  '🚩 {hosts} ơi, hãy thổi kèn tập hợp chiến binh cho trận đấu tuần này: {link}',
+  '⚔️ {hosts}, một chỉ huy giỏi không để binh đoàn chờ đợi lâu — tạo kèo ngay: {link}'
 ]
 
-// Vote reminders (3x/day). Every URGENT/CLOSE template includes {mentions} — the specific
-// roster players (linked to a Discord account) who haven't voted yet, tagged directly so
-// the reminder reaches exactly who still needs to act, not the whole server. If there is
-// nobody left to tag (every linked player has already voted, or nobody's linked at all),
-// discord-notify.ts renders {mentions} as an empty string and sends with allowed_mentions:
-// { parse: [] } instead — never falls back to tagging everyone.
+// Vote reminders (3x/day) — hero/warrior tone per explicit request, and now the *only*
+// recurring channel presence besides the pinned event message itself (per-vote Yes/No
+// messages were removed — team feedback that they made the channel too messy; the pinned
+// message's own live edit already shows who's in). Every template links to /event ("inform
+// the link to see more") since there's no per-vote message to carry that detail anymore.
+// URGENT/CLOSE include {mentions} — the specific roster players (linked to a Discord account)
+// who haven't voted or declined yet, tagged directly so the reminder reaches exactly who
+// still needs to act, never the whole server. If nobody's left to tag, discord-notify.ts
+// renders {mentions} as an empty string and sends with allowed_mentions: { parse: [] }.
 export const VOTE_REMINDER_URGENT = [
-  '📢 Hiện mới có {count} người tham gia, còn thiếu khá nhiều đó! {mentions} vào vote giúp nhé: {link}',
-  '🙏 Cần thêm {remaining} người nữa mới đủ kèo. {mentions} ơi, đừng để trận này tan vì thiếu người: {link}',
-  '📢 Kèo tuần này đang thiếu {remaining} suất. {mentions} tham gia giúp nào: {link}',
-  '⚠️ Mới có {count} người xác nhận, cần gấp thêm người. {mentions} xem chi tiết tại: {link}',
-  '📢 Còn thiếu {remaining} người mới đủ trận. {mentions} ơi, vào vote đi: {link}',
-  '🙏 Trận này đang cần thêm người lắm, còn thiếu {remaining} suất. {mentions} giúp một tay: {link}',
-  '📢 Chỉ mới {count} người, kèo có nguy cơ tan. {mentions} vào tham gia ngay tại: {link}',
-  '⚠️ {mentions} ơi, mọi người đang chờ các bạn vote để đủ {remaining} suất còn thiếu: {link}',
-  '📢 Danh sách còn trống nhiều lắm. {mentions} tham gia giúp anh em nhé: {link}',
-  '🙏 {mentions}, trận tuần này cần các bạn - hiện chỉ mới {count} người xác nhận: {link}'
+  '⚔️ Chiến trường đang thiếu quân! Mới có {count} chiến binh, cần thêm {remaining} nữa. {mentions} tập hợp ngay: {link}',
+  '🛡️ Đội quân chưa đủ sức mạnh để xung trận — thiếu {remaining} người. {mentions} hãy cầm vũ khí lên: {link}',
+  '🔥 Tổng động viên! Chỉ mới {count} chiến binh trình diện, cần thêm {remaining} anh hùng nữa: {link}',
+  '🚩 Trận chiến tuần này cần thêm {remaining} chiến binh mới đủ quân số. {mentions} đừng để đồng đội đơn độc: {link}',
+  '💥 Báo động! Kèo có nguy cơ tan vì thiếu {remaining} người. {mentions} xung trận giúp anh em: {link}',
+  '🛡️ Chỉ huy cần thêm {remaining} chiến binh để hoàn thành binh đoàn. {mentions} tham gia ngay: {link}',
+  '⚔️ {mentions}, chiến trường đang chờ các bạn — còn thiếu {remaining} suất mới đủ quân: {link}',
+  '🔥 Mới {count} người xung phong, còn thiếu {remaining} nữa mới đủ đội hình chiến đấu: {link}',
+  '🚩 Kèo này cần một binh đoàn hoàn chỉnh — hiện tại thiếu {remaining} chiến binh. {mentions} vào trận: {link}',
+  '💪 {mentions} ơi, đồng đội đang chờ các bạn ra trận. Còn thiếu {remaining} suất: {link}',
+  '⚔️ Không có các bạn, trận này khó mà xung trận được. Thiếu {remaining} chiến binh: {link}',
+  '🛡️ Liên minh cần thêm sức mạnh — {remaining} chiến binh nữa là đủ quân. {mentions} tham gia: {link}',
+  '🔥 Chiến hữu ơi, hàng ngũ vẫn còn trống {remaining} vị trí. {mentions} xin mời nhập trận: {link}',
+  '🚩 Tổng cộng mới {count} chiến binh — cần {remaining} anh hùng nữa để ra trận: {link}',
+  '💥 {mentions}, quân đoàn đang réo gọi tên bạn. Còn thiếu {remaining} suất mới đủ sức chiến đấu: {link}',
+  '⚔️ Trận chiến sắp mất quân số vì thiếu {remaining} người. {mentions} đừng chậm trễ: {link}',
+  '🛡️ Cần thêm {remaining} tay súng để hoàn thiện đội hình chiến đấu. {mentions} tham gia ngay: {link}',
+  '🔥 Vinh quang đang chờ, nhưng đội hình còn thiếu {remaining} người. {mentions} xung trận: {link}',
+  '🚩 {mentions} ơi, đây là lời kêu gọi tập hợp — còn thiếu {remaining} chiến binh: {link}',
+  '💪 Một trận chiến lớn cần một đội quân đông đủ. Hiện thiếu {remaining} người. {mentions} góp sức: {link}'
 ]
 
 export const VOTE_REMINDER_CLOSE = [
-  '👀 Chỉ còn thiếu {remaining} người nữa là đủ kèo rồi! {mentions} vào vote luôn: {link}',
-  '🔥 Gần đủ rồi, thiếu {remaining} suất nữa thôi. {mentions} nhanh tay tham gia: {link}',
-  '👀 Còn {remaining} người là kèo full! {mentions} xem chi tiết tại: {link}',
-  '🔥 Sắp đủ người rồi, chỉ cần thêm {remaining} nữa. {mentions} tham gia ngay: {link}',
-  '👀 {count} người đã vào, chỉ thiếu {remaining} suất cuối. {mentions} đừng bỏ lỡ: {link}',
-  '🔥 Gần chốt kèo rồi! {mentions} cần thêm các bạn để đủ {remaining} người: {link}',
-  '👀 Sắp đủ, còn {remaining} suất trống. {mentions} còn do dự gì nữa: {link}',
-  '🔥 {mentions} ơi, chỉ cần các bạn vote là đủ {remaining} suất cuối cùng: {link}',
-  '👀 Kèo đang rất gần đủ người, thiếu {remaining} nữa. {mentions} chốt luôn nhé: {link}',
-  '🔥 Chặng cuối rồi! {mentions} vào vote để hoàn tất {remaining} suất còn thiếu: {link}'
+  '⚔️ Gần đủ quân rồi! Chỉ còn thiếu {remaining} chiến binh nữa. {mentions} chốt đội hình luôn: {link}',
+  '🛡️ Binh đoàn sắp hoàn chỉnh — còn {remaining} suất cuối cùng. {mentions} nhanh tay: {link}',
+  '🔥 Chiến thắng đang rất gần, chỉ thiếu {remaining} người nữa thôi! {mentions} vào trận: {link}',
+  '🚩 Sắp đủ quân số cho trận chiến! Còn {remaining} vị trí trống. {mentions} lấp đầy đi: {link}',
+  '💥 {mentions}, đội quân chỉ còn thiếu {remaining} anh hùng nữa là hoàn chỉnh: {link}',
+  '🛡️ Gần chốt đội hình rồi, thiếu đúng {remaining} chiến binh cuối. {mentions} đừng bỏ lỡ: {link}',
+  '⚔️ Chặng cuối của cuộc tập hợp — chỉ cần {remaining} người nữa! {mentions} xung trận: {link}',
+  '🔥 {count} chiến binh đã sẵn sàng, chỉ thiếu {remaining} nữa là đủ binh đoàn: {link}',
+  '🚩 Vinh quang đang vẫy gọi — còn {remaining} suất là đội hình hoàn thiện. {mentions} vào ngay: {link}',
+  '💪 Sắp đủ sức mạnh để xung trận, chỉ thiếu {remaining} chiến binh: {link}',
+  '🛡️ {mentions}, các bạn là mảnh ghép cuối cùng — chỉ còn thiếu {remaining} người: {link}',
+  '⚔️ Đội quân đã gần hoàn chỉnh, còn {remaining} vị trí đang chờ anh hùng: {link}',
+  '🔥 Chỉ cần thêm {remaining} chiến binh, trận chiến này chắc chắn diễn ra! {mentions}: {link}',
+  '🚩 {mentions} ơi, đừng để binh đoàn thiếu {remaining} người vào giờ chót: {link}',
+  '💥 Gần full quân số rồi! Thiếu {remaining} suất cuối để hoàn thiện đội hình: {link}',
+  '🛡️ Chiến thắng chỉ còn cách {remaining} chiến binh nữa. {mentions} chốt luôn: {link}',
+  '⚔️ {mentions}, hãy là anh hùng lấp đầy {remaining} suất còn thiếu: {link}',
+  '🔥 Đội hình chiến đấu sắp hoàn chỉnh, chỉ thiếu {remaining} người: {link}',
+  '🚩 Cơ hội cuối để gia nhập binh đoàn — còn {remaining} suất trống: {link}',
+  '💪 {mentions}, chỉ còn {remaining} bước nữa là đội quân sẵn sàng ra trận: {link}'
 ]
 
 export const VOTE_REMINDER_ENOUGH = [
-  '✅ Đã đủ {count} người cho trận này rồi! Ai muốn tham gia thêm vẫn chào đón: {link}',
-  '🎉 Kèo đã full người, cảm ơn mọi người đã tham gia. Xem danh sách tại: {link}',
-  '✅ Đủ {count} người tham gia rồi, trận đấu chắc chắn diễn ra! Chi tiết: {link}',
-  '🎉 Đã đạt số lượng cần thiết. Ai vào thêm thì vẫn được chào đón nhé: {link}',
-  '✅ {count} người đã sẵn sàng cho trận này. Xem ai tham gia tại: {link}',
-  '🎉 Kèo đã đủ người, chuẩn bị tinh thần chiến đấu thôi! Chi tiết: {link}',
-  '✅ Trận này đã đủ {count} người, không còn gì phải lo lắng nữa: {link}',
-  '🎉 Đội hình đã đủ, giờ chỉ còn chờ ngày thi đấu. Xem thêm: {link}',
-  '✅ {count} người đã góp mặt, kèo tuần này coi như chắc chắn: {link}',
-  '🎉 Đủ người tham gia rồi, cảm ơn cả nhà đã nhiệt tình: {link}'
+  '🏆 Binh đoàn đã tập hợp đủ {count} chiến binh! Ai muốn gia nhập thêm vẫn luôn được chào đón: {link}',
+  '👑 Đội quân đã sẵn sàng ra trận với {count} chiến binh! Xem danh sách tại: {link}',
+  '⚔️ Đủ quân số rồi, chiến thắng đang chờ phía trước! Chi tiết: {link}',
+  '🛡️ {count} chiến binh đã tập hợp — trận chiến này chắc chắn diễn ra! Xem thêm: {link}',
+  '🔥 Đội hình hoàn chỉnh với {count} tay súng! Chuẩn bị tinh thần xung trận: {link}',
+  '🚩 Binh đoàn đã đủ sức mạnh để chiến đấu! Ai vào thêm vẫn được hoan nghênh: {link}',
+  '🏆 Vinh quang đang gọi tên — {count} chiến binh đã có mặt! Chi tiết tại: {link}',
+  '👑 Đội quân {count} người đã tập hợp xong, chỉ còn chờ ngày ra trận: {link}',
+  '⚔️ Đủ chiến binh rồi! Trận chiến tuần này chính thức được xác nhận: {link}',
+  '🛡️ {count} anh hùng đã sẵn sàng — không còn gì phải lo lắng nữa: {link}',
+  '🔥 Binh đoàn đã full quân số! Ai muốn góp mặt thêm vẫn luôn có chỗ: {link}',
+  '🚩 Đội hình chiến đấu đã hoàn thiện với {count} chiến binh. Xem tại: {link}',
+  '🏆 Chiến thắng đã trong tầm tay với {count} tay súng sẵn sàng! Chi tiết: {link}',
+  '👑 Quân đoàn đã tập hợp đầy đủ, giờ chỉ còn chờ hồi kèn xung trận: {link}',
+  '⚔️ {count} chiến binh đã điểm danh — đội hình chính thức chốt! Xem thêm: {link}',
+  '🛡️ Đủ người cho trận chiến này rồi, cảm ơn tất cả chiến binh đã tham gia: {link}',
+  '🔥 Binh đoàn hùng mạnh với {count} người đã sẵn sàng ra trận: {link}',
+  '🚩 Đội quân đã đủ sức mạnh, chiến trường đang chờ đón các anh hùng: {link}',
+  '🏆 {count} chiến binh, một đội hình đáng gờm đã hình thành! Chi tiết: {link}',
+  '👑 Trận chiến tuần này đã có đủ quân, giờ chỉ còn đếm ngày xung trận: {link}'
 ]
 
 // The ≥10-votes team-split announcement, listing both generated teams.

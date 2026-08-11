@@ -1,5 +1,4 @@
-import type { EventVoter, Host, Player } from '#shared/types'
-import { getTierKey } from '#shared/utils/tier'
+import type { Host, Player } from '#shared/types'
 import { formatVietnamDateTime } from '#shared/utils/week'
 import { escapeDiscordMarkdown, postDiscordMessage } from './discord-api'
 import * as messages from './discord-messages'
@@ -34,28 +33,15 @@ function mentionAll(hosts: Host[]): string {
 // null) — every function here inherits that safety by construction, so a slow/broken
 // Discord API can never break the vote/reminder/task that triggered the notification.
 
-export async function notifyVoteCast(voter: EventVoter, linkedPlayer: Player | null): Promise<void> {
-  const name = escapeDiscordMarkdown(voter.username)
-  if (linkedPlayer) {
-    const tierKey = getTierKey(linkedPlayer.score)
-    if (tierKey === 'S' || tierKey === 'A') {
-      const message = render(pick(messages.VOTE_CAST_VIP), { name, tier: tierKey })
-      await postDiscordMessage(channelId(), { content: message, allowed_mentions: { parse: [] } })
-      return
-    }
-  }
-  const message = render(pick(messages.VOTE_CAST_NORMAL), { name })
-  await postDiscordMessage(channelId(), { content: message, allowed_mentions: { parse: [] } })
-}
-
-export async function notifyVoteDeclined(voter: EventVoter): Promise<void> {
-  const message = render(pick(messages.VOTE_DECLINED), { name: escapeDiscordMarkdown(voter.username) })
-  await postDiscordMessage(channelId(), { content: message, allowed_mentions: { parse: [] } })
-}
+// No per-vote channel messages — explicit team feedback that announcing every Yes/No made
+// the channel too messy. The pinned event message already shows the live voter list/count
+// via its own in-place edit (UPDATE_MESSAGE), which is "informing without spamming"; the
+// only messages that still post to the channel are reminders (below), which always link back
+// to /event for anyone who wants the detail a one-line ping can't carry.
 
 export async function notifyHostReminder(hosts: Host[]): Promise<void> {
   if (!hosts.length) return
-  const message = render(pick(messages.HOST_REMINDER), { hosts: mentionAll(hosts) })
+  const message = render(pick(messages.HOST_REMINDER), { hosts: mentionAll(hosts), link: EVENT_PAGE_URL })
   await postDiscordMessage(channelId(), {
     content: message,
     allowed_mentions: { users: hosts.map(host => host.discordUserId) }

@@ -2,13 +2,22 @@ PM ?= pnpm
 WRANGLER_CONFIG ?= wrangler.toml
 BUILD_WRANGLER_CONFIG ?= .output/server/wrangler.json
 
-.PHONY: help dev build test setup deploy change-pin clear-changelog
+.PHONY: help dev dev-restart build test setup deploy change-pin clear-changelog
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "%-14s %s\n", $$1, $$2}'
 
 dev: ## Local dev server (KV falls back to fs, no Cloudflare account needed)
 	$(PM) run dev
+
+dev-restart: ## Kill any running dev server (incl. the @nuxt/cli wrapper) and start fresh in the background — use after editing .env/.dev.vars, not Ctrl-C+rerun
+	@pkill -9 -f "@nuxt/cli" 2>/dev/null || true
+	@pkill -9 -f "nuxt.mjs dev" 2>/dev/null || true
+	@pkill -9 -f "workerd serve" 2>/dev/null || true
+	@for i in $$(seq 1 20); do lsof -i :3000 >/dev/null 2>&1 || break; sleep 0.25; done
+	@nohup $(PM) dev > /tmp/nuxt-dev.log 2>&1 & disown
+	@sleep 1
+	@echo "Dev server restarting in the background — tail -f /tmp/nuxt-dev.log to watch it come up."
 
 build: ## Production build (outputs to .output/)
 	$(PM) run build

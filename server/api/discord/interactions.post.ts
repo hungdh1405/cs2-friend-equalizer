@@ -157,16 +157,16 @@ export default defineEventHandler(async (event) => {
 
   // Everything below is fire-and-forget — logging + Discord notifications must never add
   // latency to (or risk breaking) the button response above.
+  // Deliberately no per-vote channel message here — team feedback that announcing every
+  // Yes/No made the channel too messy. Still logged to /changelog (a separate, website-only
+  // audit trail); the pinned event message itself already reflects the vote live via the
+  // UPDATE_MESSAGE response above.
   const followUp = (async () => {
     if (addedVoter) {
       await logVoteCast({ discordUserId: addedVoter.discordUserId, discordUsername: addedVoter.username })
-      const roster = await getRoster()
-      const linkedPlayer = roster.find(player => player.discordUserId === addedVoter!.discordUserId) ?? null
-      await notifyVoteCast(addedVoter, linkedPlayer)
     }
     if (declinedVoter) {
       await logVoteDeclined({ discordUserId: declinedVoter.discordUserId, discordUsername: declinedVoter.username })
-      await notifyVoteDeclined(declinedVoter)
     }
     if (shouldAnnounceMatchReady) {
       await notifyMatchReady(linkedPlayersForTeams)
