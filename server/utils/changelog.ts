@@ -1,4 +1,5 @@
 import type { ChangeLogEntry, ChangeLogField } from '#shared/types'
+import { formatVietnamDateTime } from '#shared/utils/week'
 import * as templates from './changelog-messages'
 
 export interface ChangeContext {
@@ -122,13 +123,18 @@ export async function logVoteDeclined(ctx: VoteContext) {
 // Unlike vote-cast/removed (a Discord-authenticated user action, deliberately not IP-logged
 // — see shared/types' ChangeLogEntry comment), creating an event is an admin action through
 // the same PIN-gated flow as player CRUD, so it's IP-stamped the same way those are.
+// `to` keeps the raw ISO instant (a structured, machine-readable field — matches how
+// score/tag-level changes store raw numbers there) but the human-readable `message` uses the
+// same Vietnam-time "DD/MM/YYYY HH:mm" format as every other datetime shown anywhere else in
+// the app (Discord embeds/messages, the /event page) — this log was the one place still
+// leaking a raw UTC ISO string into prose.
 export async function logEventCreated(ip: string, startsAt: string) {
-  const message = render(pick(templates.EVENT_CREATED_LOG), { startsAt })
+  const message = render(pick(templates.EVENT_CREATED_LOG), { startsAt: formatVietnamDateTime(startsAt) })
   await writeEntry({ ip }, 'eventCreated', undefined, startsAt, message)
 }
 
 export async function logEventUpdated(ip: string, startsAt: string) {
-  const message = render(pick(templates.EVENT_UPDATED_LOG), { startsAt })
+  const message = render(pick(templates.EVENT_UPDATED_LOG), { startsAt: formatVietnamDateTime(startsAt) })
   await writeEntry({ ip }, 'eventUpdated', undefined, startsAt, message)
 }
 
