@@ -505,6 +505,8 @@ clear-changelog: ## permanently delete every change-log entry from the live KV n
 
 **`make dev-restart` exists specifically because a plain kill-and-rerun isn't reliable for this project**: `pnpm dev` runs through `@nuxt/cli`'s wrapper, which auto-respawns the inner server from its own stale in-memory env snapshot if only the inner process is killed — so an `.env`/`.dev.vars` edit can silently *not* take effect even though the port re-binds to a "new" PID. Always use this target (not manual `lsof`/`kill`) after editing env files. See decisions log #73/#76.
 
+**When you're actually done with local testing (not just restarting it), stop the dev server entirely rather than leaving it running**: `pkill -f "@nuxt/cli"`, `pkill -f "nuxt.mjs dev"`, and `pkill -f "workerd serve"` — the same three patterns `dev-restart` kills before it relaunches, just without the relaunch. A dev server left running across sessions is how the stale-process pileup in #76 happened in the first place; confirm with `lsof -i :3000` (should show nothing) before moving on.
+
 `NUXT_SESSION_PASSWORD` is set once during initial setup (not part of the PIN-rotation flow).
 
 ## 14. Deployment / domain
