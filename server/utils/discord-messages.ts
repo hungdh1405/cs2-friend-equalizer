@@ -119,39 +119,41 @@ export const VOTE_REMINDER_ENOUGH = [
 ]
 
 // The ≥10-votes team-split announcement, listing both generated teams. Hero/warrior tone,
-// consistent with the reminder pools above (see decisions log #77 — this pool, plus
-// NEED_DISCORD_LINK/EVENT_CANCELED/EVENT_CREATED below, were missed in the first retone pass).
+// consistent with the reminder pools above (see decisions log #77). Explicit requirement,
+// #79: this is a random *suggestion* to help get started, never framed as a final/binding
+// decision — who actually ends up playing with whom is up to the group's own luck and
+// choices on the day. Every template says so; none present the split as settled.
 export const TEAM_READY = [
-  '🏆 Binh đoàn đã đủ quân! Hai đội chiến binh được chia như sau:\n{teams}',
-  '⚔️ Đội hình chiến đấu đã hoàn tất — các anh hùng đã vào vị trí:\n{teams}',
-  '🛡️ {count} chiến binh đã được chia thành hai đội quân:\n{teams}',
-  '👑 Danh sách anh hùng cho trận chiến tuần này:\n{teams}',
-  '🔥 Hai binh đoàn đã sẵn sàng đối đầu:\n{teams}',
-  '🚩 Đội hình xung trận đã được chốt:\n{teams}',
-  '🏆 Chiến binh đã tập hợp đủ {count} người, đội hình chia như sau:\n{teams}',
-  '⚔️ Hai đội quân ngang tài ngang sức đã được lập:\n{teams}',
-  '🛡️ Trận chiến sắp bắt đầu — đây là đội hình của bạn:\n{teams}',
-  '👑 Các anh hùng đã được phân chia vào hai chiến tuyến:\n{teams}',
-  '🔥 Đội hình chiến đấu đã lên, chuẩn bị xung trận:\n{teams}',
-  '🚩 Binh đoàn đã được chia đều sức mạnh:\n{teams}',
-  '🏆 {count} chiến binh, hai đội hình đáng gờm đã hình thành:\n{teams}',
-  '⚔️ Đã đến giờ ra trận — đội hình như sau:\n{teams}',
-  '🛡️ Hai chiến tuyến đã được thiết lập cho trận này:\n{teams}',
-  '👑 Đội hình anh hùng đã sẵn sàng chiến đấu:\n{teams}',
-  '🔥 Không cần chờ thêm, binh đoàn đã được chia xong:\n{teams}',
-  '🚩 Đội quân của bạn đã được chỉ định:\n{teams}',
-  '🏆 Chiến binh đã điểm danh đủ, đội hình chốt như sau:\n{teams}',
-  '⚔️ Hai đội chiến binh ngang sức đã được lập ra:\n{teams}',
-  '🛡️ Cân bằng lực lượng hoàn tất cho cả hai binh đoàn:\n{teams}',
-  '👑 Vinh quang đang chờ — đội hình chiến đấu như sau:\n{teams}',
-  '🔥 Đội hình đã được random ngẫu nhiên nhưng vẫn cân tài cân sức:\n{teams}',
-  '🚩 Chiến trường đã chia phe, xem bạn thuộc đội nào:\n{teams}',
-  '🏆 {count} anh hùng, hai đội quân đã sẵn sàng đối đầu:\n{teams}',
-  '⚔️ Đội hình chiến đấu tuần này đã được ấn định:\n{teams}',
-  '🛡️ Hai binh đoàn đã điểm danh đầy đủ:\n{teams}',
-  '👑 Chiến binh nào cũng có phần trong trận này — đội hình:\n{teams}',
-  '🔥 Sẵn sàng chưa chiến binh? Đội hình đã lên:\n{teams}',
-  '🚩 Đội hình cho trận chiến sắp tới đã được chốt:\n{teams}'
+  '🏆 Đây là gợi ý chia đội hình từ hệ thống, không phải quyết định cuối cùng — ai đấu cùng ai còn tùy duyên và lựa chọn của mọi người:\n{teams}',
+  '⚔️ Random ra đội hình cho {count} chiến binh để tham khảo thôi, thực tế thế nào còn do vận số và ý muốn của các bạn:\n{teams}',
+  '🛡️ Đội hình dưới đây chỉ là một đề xuất, không ràng buộc gì cả — số phận và lựa chọn của các bạn mới là điều quyết định:\n{teams}',
+  '👑 Đây chỉ là gợi ý ngẫu nhiên, ai theo ai còn tùy vào duyên và ý của từng người:\n{teams}',
+  '🔥 Hệ thống đề xuất đội hình như sau, nhưng quyết định thật sự vẫn thuộc về vận may và lựa chọn của các bạn:\n{teams}',
+  '🚩 Gợi ý chia đội ngẫu nhiên, không phải lệnh bắt buộc — chiến binh vẫn có quyền tự quyết theo ý mình:\n{teams}',
+  '🏆 Đội hình này chỉ mang tính tham khảo, không phải chân lý — thật ra ai đánh cùng ai còn tùy cơ duyên:\n{teams}',
+  '⚔️ Đây là cách chia ngẫu nhiên cho {count} người để tham khảo thôi, quyết định cuối cùng vẫn nằm ở tay các chiến binh:\n{teams}',
+  '🛡️ Gợi ý đội hình dưới đây không bắt buộc — mọi người có thể thay đổi theo lựa chọn riêng:\n{teams}',
+  '👑 Random ra vậy thôi, còn ai chơi với ai thật thì tùy duyên số và quyết định của các bạn:\n{teams}',
+  '🔥 Đây là đề xuất từ hệ thống, không phải quyết định cuối cùng — vận số sẽ quyết định phần còn lại:\n{teams}',
+  '🚩 Chỉ là gợi ý chia đội ngẫu nhiên, không ép buộc ai cả — quyền quyết định vẫn ở các bạn:\n{teams}',
+  '🏆 Đội hình gợi ý như sau — giữ nguyên hay đổi lại là lựa chọn của các chiến binh:\n{teams}',
+  '⚔️ Hệ thống chỉ đưa ra gợi ý, còn thực tế ra sao phải chờ duyên số và ý muốn của mọi người:\n{teams}',
+  '🛡️ Đừng xem đây là quyết định cuối, đây chỉ là gợi ý để anh em tham khảo:\n{teams}',
+  '👑 Đội hình ngẫu nhiên chỉ mang tính đề xuất — ai chơi cùng ai là do cơ duyên và lựa chọn của các bạn:\n{teams}',
+  '🔥 Gợi ý là vậy, nhưng chọn đi cùng ai vẫn là quyền của từng chiến binh:\n{teams}',
+  '🚩 Đây chỉ là một cách chia ngẫu nhiên để tham khảo, không phải quyết định cuối cùng:\n{teams}',
+  '🏆 Random đội hình cho {count} chiến binh chỉ để gợi ý thôi, quyết định thật vẫn nằm ở vận số và lựa chọn của các bạn:\n{teams}',
+  '⚔️ Gợi ý chia đội — không bắt buộc theo, tùy ý mọi người tự quyết:\n{teams}',
+  '🛡️ Đội hình này là đề xuất, không phải lệnh — duyên số và lựa chọn của các bạn mới là quyết định cuối cùng:\n{teams}',
+  '👑 Chỉ là gợi ý ngẫu nhiên để anh em tham khảo, thực tế ra sao còn tùy cơ duyên:\n{teams}',
+  '🔥 Đề xuất đội hình như sau, nhưng ai đấu cùng ai thật ra vẫn do vận may và lựa chọn của các bạn:\n{teams}',
+  '🚩 Đây là gợi ý từ hệ thống, mọi người hoàn toàn có thể tự điều chỉnh theo ý muốn:\n{teams}',
+  '🏆 Random đội hình chỉ để tham khảo — quyết định cuối cùng luôn thuộc về các chiến binh:\n{teams}',
+  '⚔️ Gợi ý là thế, còn ai thật sự chung team với ai thì để duyên số quyết định:\n{teams}',
+  '🛡️ Đội hình dưới đây không phải bắt buộc, chỉ là một gợi ý ngẫu nhiên để tham khảo:\n{teams}',
+  '👑 Đây là đề xuất chia đội, không phải quyết định cuối — số phận và lựa chọn của mọi người mới là điều quyết định:\n{teams}',
+  '🔥 Chỉ là gợi ý thôi chiến binh, thực tế đấu với ai còn tùy vào duyên và ý muốn của các bạn:\n{teams}',
+  '🚩 Đội hình ngẫu nhiên này chỉ mang tính tham khảo, quyết định cuối cùng vẫn nằm ở tay mọi người:\n{teams}'
 ]
 
 // Some voters aren't linked to a roster Player yet — announced instead of TEAM_READY, and
