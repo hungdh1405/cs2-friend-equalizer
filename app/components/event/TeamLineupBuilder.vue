@@ -3,6 +3,10 @@ import { computed, nextTick, ref, watch } from 'vue'
 import type { EventVoter } from '#shared/types'
 import { LoaderCircleIcon, ShieldIcon, SwordsIcon } from '@lucide/vue'
 import { toast } from 'vue-sonner'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { CrudCancelledError } from '@/composables/useCrudGate'
@@ -76,14 +80,19 @@ async function flashDrop(discordUserId: string) {
   gsap.fromTo(el, { scale: 1.18, filter: 'brightness(1.6)' }, { scale: 1, filter: 'brightness(1)', duration: 0.35, ease: 'power2.out' })
 }
 
-// --- Save ---
+// --- Save, gated behind a confirm step — this posts a real Discord announcement (pinging
+// every assigned player) and starts a fresh prediction poll, so it's consequential enough to
+// warrant the same confirm-before-acting pattern as Cancel Event / Remove Host on this page,
+// not a bare single-click action.
+const confirmSaveOpen = ref(false)
 const saving = ref(false)
 
-async function handleSave() {
+async function performSave() {
   if (saving.value) return
   saving.value = true
   try {
     await saveManualTeams(teamA.value.map(voter => voter.discordUserId), teamB.value.map(voter => voter.discordUserId))
+    confirmSaveOpen.value = false
     toast.success('Đã lưu đội hình và tuyên chiến trên Discord!')
   } catch (error) {
     if (!(error instanceof CrudCancelledError)) toast.error('Có lỗi khi lưu đội hình.')
@@ -229,11 +238,23 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
       </div>
     </div>
 
-    <Button v-if="isUnlocked" class="mt-3 bg-red-700 text-white hover:bg-red-600" :disabled="saving" @click="handleSave">
-      <LoaderCircleIcon v-if="saving" data-icon="inline-start" class="motion-safe:animate-spin" />
-      <SwordsIcon v-else data-icon="inline-start" />
+    <Button v-if="isUnlocked" class="mt-3 bg-red-700 text-white hover:bg-red-600" :disabled="saving" @click="confirmSaveOpen = true">
+      <SwordsIcon data-icon="inline-start" />
       Lưu Đội Hình &amp; Tuyên Chiến
     </Button>
+
+    <!-- Loud and unmissable on purpose — this isn't a quiet background save, it's about to
+         ping every assigned player on Discord, so "hard to see" is exactly the wrong feel. -->
+    <div
+      v-if="saving"
+      class="hud-frame mt-3 flex items-center gap-3 rounded-xl border border-red-500/50 bg-black/60 px-4 py-2.5"
+      style="--hud-accent: #ef4444"
+    >
+      <LoaderCircleIcon class="size-5 shrink-0 text-red-400 motion-safe:animate-spin" />
+      <p class="neon-text font-heading text-xs font-bold tracking-[0.2em] text-red-400 uppercase" style="text-shadow: 0 0 8px rgba(255,20,40,0.8)">
+        Đang tuyên chiến<span class="animate-pulse">...</span>
+      </p>
+    </div>
 
     <div v-if="predictions && (predictions.teamA.length || predictions.teamB.length)" class="mt-4 border-t border-red-900/40 pt-3">
       <p class="mb-2 text-[11px] font-semibold tracking-wide text-purple-300/80 uppercase">🔮 Dự đoán đội thắng</p>
@@ -258,5 +279,22 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
         </div>
       </div>
     </div>
+
+    <AlertDialog v-model:open="confirmSaveOpen">
+      <AlertDialogContent lang="vi">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Lưu đội hình và tuyên chiến?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Đội hình sẽ được công bố lên Discord — mỗi chiến binh trong Đội A và Đội B sẽ được gắn thẻ trực tiếp. Một cuộc dự đoán "đội nào sẽ thắng" mới cũng sẽ bắt đầu, thay thế cuộc dự đoán cũ nếu có.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Huỷ</AlertDialogCancel>
+          <AlertDialogAction class="bg-red-700 text-white hover:bg-red-600" :disabled="saving" @click="performSave">
+            Tuyên Chiến
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>
