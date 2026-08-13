@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { Player } from '#shared/types'
 import { ROLES } from '#shared/types'
+import { QrCodeIcon } from '@lucide/vue'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { getTier } from '@/lib/tier'
 import { cn } from '@/lib/utils'
+import { renderBloodyQr } from '@/lib/qr-render'
+import { buildVietQrPayload, getBankByKey } from '#shared/utils/vietqr'
+import { pickTransferMessage, TRANSFER_AMOUNT } from '#shared/utils/transfer-messages'
 import TagBadge from './TagBadge.vue'
 
 const props = defineProps<{ open: boolean, player: Player | null }>()
@@ -20,6 +24,29 @@ const initials = computed(() => props.player?.name.trim().slice(0, 2).toUpperCas
 const roleLabel = computed(() => ROLES.find(role => role.value === props.player?.role)?.label ?? props.player?.role)
 const tagIds = computed(() => Object.keys(props.player?.tagLevels ?? {}))
 const tier = computed(() => getTier(props.player?.score ?? 0))
+
+const bankShortName = computed(() => {
+  const bankAccount = props.player?.bankAccount
+  return bankAccount ? getBankByKey(bankAccount.bankKey)?.shortName ?? bankAccount.bankKey : ''
+})
+
+// Regenerated fresh each time the dialog opens on a (possibly different) player — this is a
+// read-only preview, so it reuses the same fixed-amount/random-message convention as the
+// team payout QRs on /event rather than inventing a second one.
+const qrDataUrl = ref<string | undefined>()
+watch([() => props.open, () => props.player?.id], async () => {
+  qrDataUrl.value = undefined
+  const bankAccount = props.player?.bankAccount
+  if (!props.open || !bankAccount) return
+  const payload = buildVietQrPayload({
+    bankKey: bankAccount.bankKey,
+    accountNumber: bankAccount.accountNumber,
+    amount: TRANSFER_AMOUNT,
+    purpose: pickTransferMessage()
+  })
+  if (!payload) return
+  qrDataUrl.value = await renderBloodyQr(payload, 200)
+}, { immediate: true })
 
 function tagPropsFor(tagId: string) {
   const tag = tagById(tagId)
@@ -111,6 +138,19 @@ const lightboxOpen = ref(false)
           <div class="tag-panel carbon-fiber flex flex-wrap gap-1.5 bg-background/30 p-3">
             <TagBadge v-for="tagId in tagIds" :key="tagId" v-bind="tagPropsFor(tagId)" />
             <span v-if="!tagIds.length" class="text-xs text-muted-foreground">No tags yet.</span>
+          </div>
+
+          <div v-if="player.bankAccount" class="mt-3 flex items-center gap-3 rounded-lg border border-border/60 bg-background/30 p-3">
+            <div class="shrink-0 rounded-md border-2 border-white bg-white p-1">
+              <img v-if="qrDataUrl" :src="qrDataUrl" :alt="`Payment QR for ${player.name}`" class="size-20">
+              <div v-else class="flex size-20 items-center justify-center">
+                <QrCodeIcon class="size-5 animate-pulse text-black/30" />
+              </div>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">{{ player.bankAccount.accountName || player.name }}</p>
+              <p class="text-xs text-muted-foreground">{{ bankShortName }} · {{ player.bankAccount.accountNumber }}</p>
+            </div>
           </div>
         </CardContent>
 

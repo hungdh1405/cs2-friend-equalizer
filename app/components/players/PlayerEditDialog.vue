@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import type { Player, Role, TagKind } from '#shared/types'
 import { ROLES } from '#shared/types'
-import { LoaderCircleIcon, PlusIcon, XIcon } from '@lucide/vue'
+import { ChevronsUpDownIcon, LoaderCircleIcon, PlusIcon, XIcon } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -34,6 +34,7 @@ const discordUserId = ref('')
 const bankKey = ref(NO_BANK)
 const bankAccountNumber = ref('')
 const bankAccountName = ref('')
+const bankPopoverOpen = ref(false)
 const photoDataUrl = ref<string | undefined>()
 const saving = ref(false)
 
@@ -45,7 +46,9 @@ function resetForm() {
   discordUserId.value = props.player?.discordUserId ?? ''
   bankKey.value = props.player?.bankAccount?.bankKey ?? NO_BANK
   bankAccountNumber.value = props.player?.bankAccount?.accountNumber ?? ''
-  bankAccountName.value = props.player?.bankAccount?.accountName ?? ''
+  // Defaults to the player's own name — almost always correct for a bank account holder,
+  // and still freely editable for the rare case it needs a different format (e.g. all-caps).
+  bankAccountName.value = props.player?.bankAccount?.accountName ?? props.player?.name ?? ''
   photoDataUrl.value = undefined
 }
 
@@ -61,9 +64,18 @@ const bankAccountPayload = computed(() => {
   return {
     bankKey: bankKey.value,
     accountNumber: bankAccountNumber.value.trim(),
-    accountName: bankAccountName.value.trim() || undefined
+    accountName: bankAccountName.value.trim() || name.value.trim() || undefined
   }
 })
+const selectedBankLabel = computed(() => {
+  if (bankKey.value === NO_BANK) return 'No bank linked'
+  const bank = VIETQR_BANKS.find(b => b.key === bankKey.value)
+  return bank ? `${bank.shortName} — ${bank.name}` : 'No bank linked'
+})
+function selectBank(key: string) {
+  bankKey.value = key
+  bankPopoverOpen.value = false
+}
 const roleDescription = computed(() => ROLES.find(r => r.value === role.value)?.description ?? '')
 const selectedTagIds = computed(() => Object.keys(tagLevels.value))
 const availableTags = computed(() => tags.value.filter(tag => !(tag.id in tagLevels.value)))
@@ -197,19 +209,28 @@ async function submit() {
           <FieldGroup>
             <Field>
               <FieldLabel for="player-bank">Bank</FieldLabel>
-              <Select v-model="bankKey">
-                <SelectTrigger id="player-bank" class="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem :value="NO_BANK">No bank linked</SelectItem>
-                    <SelectItem v-for="bank in VIETQR_BANKS" :key="bank.key" :value="bank.key">
-                      {{ bank.shortName }} — {{ bank.name }}
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <Popover v-model:open="bankPopoverOpen">
+                <PopoverTrigger as-child>
+                  <Button id="player-bank" type="button" variant="outline" role="combobox" :aria-expanded="bankPopoverOpen" class="w-full justify-between font-normal">
+                    <span class="truncate">{{ selectedBankLabel }}</span>
+                    <ChevronsUpDownIcon class="shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent class="w-[--radix-popover-trigger-width] min-w-72 p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search bank…" />
+                    <CommandList>
+                      <CommandEmpty>No bank found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem value="No bank linked" @select="selectBank(NO_BANK)">No bank linked</CommandItem>
+                        <CommandItem v-for="bank in VIETQR_BANKS" :key="bank.key" :value="`${bank.shortName} ${bank.name}`" @select="selectBank(bank.key)">
+                          {{ bank.shortName }} — {{ bank.name }}
+                        </CommandItem>
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </Field>
             <template v-if="bankKey !== NO_BANK">
               <Field>

@@ -4,6 +4,8 @@
 // VietQR transfer content is a machine-read field most banking apps don't render Vietnamese
 // diacritics in reliably, and this matches the exact style the brief's own examples used
 // ("Toi thua tam phuc khau phuc", "Toi the se bao thu").
+export const TRANSFER_AMOUNT = 50000
+
 export const TRANSFER_MESSAGES = [
   'Toi thua tam phuc khau phuc',
   'Toi the se bao thu',

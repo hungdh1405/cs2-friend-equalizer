@@ -8,7 +8,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { buildVietQrPayload, getBankByKey } from '#shared/utils/vietqr'
-import { pickTransferMessage } from '#shared/utils/transfer-messages'
+import { pickTransferMessage, TRANSFER_AMOUNT } from '#shared/utils/transfer-messages'
 import { renderBloodyQr } from '@/lib/qr-render'
 
 const props = defineProps<{
@@ -20,15 +20,16 @@ const props = defineProps<{
 
 const { players } = usePlayers()
 
-// Fixed per the feature request — not user-configurable.
-const TRANSFER_AMOUNT = 50000
-
 function avatarUrl(voter: { discordUserId: string, avatar: string | null }) {
   return voter.avatar ? `https://cdn.discordapp.com/avatars/${voter.discordUserId}/${voter.avatar}.png` : undefined
 }
 
+function playerFor(discordUserId: string) {
+  return players.value.find(p => p.discordUserId === discordUserId)
+}
+
 function bankAccountFor(discordUserId: string) {
-  return players.value.find(p => p.discordUserId === discordUserId)?.bankAccount
+  return playerFor(discordUserId)?.bankAccount
 }
 
 // The leader gets the QR spotlight if they've linked a bank account; otherwise fall back to
@@ -82,7 +83,7 @@ function bankShortName(discordUserId: string) {
 }
 
 function accountHolder(voter: EventVoter) {
-  return bankAccountFor(voter.discordUserId)?.accountName || voter.username
+  return bankAccountFor(voter.discordUserId)?.accountName || playerFor(voter.discordUserId)?.name || voter.username
 }
 
 function accountNumber(discordUserId: string) {
@@ -101,7 +102,7 @@ watchEffect(() => {
 <template>
   <div v-if="qrPersonA || qrPersonB || allWithBank.length" class="border-t border-red-900/40 pt-3">
     <p class="mb-2 flex items-center gap-1 text-[11px] font-semibold tracking-wide text-yellow-400/80 uppercase">
-      <BanknoteIcon class="size-3" /> Quỹ chiến — Trả nợ danh dự (50.000đ)
+      <BanknoteIcon class="size-3" /> Quỹ chiến — Trả nợ danh dự
     </p>
 
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
