@@ -195,6 +195,11 @@ Reasoning behind each call, so it's clear these were deliberate, not defaults:
     - **"the card so long already... should use Accordion for different section"**: Name/Score/Role stay always-visible (the fields every edit touches), but Discord ID, Bank account, and Tags — previously three stacked `FieldSet`s making the dialog scroll for ages — are now `Accordion` (`type="multiple"`, so more than one can be open at once) items, collapsed by default. Registry access turned out fine this time (unlike #64's accordion, which had to be hand-written) — `pnpm dlx shadcn-vue@latest add accordion` installed the real component cleanly. Each trigger shows a quiet status hint so an admin can tell what's already filled in without opening it: "Discord ID · Linked", "Bank account · Linked", "Tags (9)".
     - **"when view player, also show the QR payment if have — view mode also can view qr code"**: the *popup* detail dialog already got a QR section in #82, but the **separate, full-page `/players/[id]` view** (linked from every player card's name) had never gotten one. Extracted the QR-preview markup (payload build + `renderBloodyQr` + bank-label lookup) out of `PlayerDetailDialog.vue` into a new shared `PlayerBankQr.vue` — this was about to become a third near-identical copy-paste (`TeamQrPanel.vue`'s per-person cards were already a fourth, though those carry extra team-color theming that doesn't cleanly factor out) — and dropped it into both `PlayerDetailDialog.vue` (replacing its inline version, zero behavior change) and a new "Payment QR" `Card` on `/players/[id].vue`, both gated on `player.bankAccount` existing.
     - Verified via Playwright: the edit dialog's three accordion sections open/close independently and the collapsed view is dramatically shorter (screenshotted at each state); `/players/[id]` now renders the same red QR + bank label block as the roster popup for a player with bank info linked, zero console errors.
+85. **QR codes are click-to-enlarge and bigger inline** ("too small to scan... can you make it larger"), via a single new shared `app/components/QrPreview.vue` used everywhere a QR renders (`TeamQrPanel.vue`'s two spotlight cards and its "view all" dialog, `PlayerBankQr.vue`'s roster/detail views) — the fourth near-duplicate QR-rendering copy that #84 predicted, finally collapsed into one place instead of growing a fifth.
+    - **Enlarging re-renders at real higher resolution from the same payload (420px) rather than CSS-stretching the small inline image** — a canvas-rendered QR blurs at the edges when scaled up, which is exactly wrong for something whose whole job is being scanned by a camera. `QrPreview` takes just a `payload` string and a `size`; it owns both the inline render and an on-demand higher-res one shown in a `Dialog` lightbox on click, so callers only ever pass a payload, never a pre-rendered data URL.
+    - **Inline sizes bumped too**, not just click-to-enlarge as a fallback: `TeamQrPanel.vue`'s two spotlight cards 128px → 152px, its "view all" grid 112px → 128px, `PlayerBankQr.vue` 80px → 112px (default, overridable via its existing `size` prop).
+    - This let `TeamQrPanel.vue` shed its own `qrDataUrls` cache/`renderQr()`/`watchEffect` entirely — `payloadFor(discordUserId)` now just builds the VietQR string and hands it to `QrPreview`, which does its own rendering; net simplification, not just a UI add.
+    - Verified via Playwright: clicking any of the 5 QR touchpoints (2 spotlight cards, the "view all" grid, the roster detail popup, `/players/[id]`) opens a large, sharp, correctly-decodable-shaped QR in a lightbox Dialog (including one nested inside the already-open "view all" Dialog); zero console errors.
 
 | Key | Value | Notes |
 |---|---|---|
@@ -437,10 +442,11 @@ components/
   CrudPinDialog.vue              # modal PIN prompt, opened on demand by requireCrudToken()
   UnlockIndicator.vue            # nav "Locked" / "Unlocked Xm:Ss" badge, click to unlock/lock
   ModeToggle.vue
+  QrPreview.vue                  # shared inline QR + click-to-enlarge lightbox, given just a payload string — see decisions log #85
   players/
     PlayerCard.vue               # incl. tier badge + border accent
     PlayerDetailDialog.vue       # full-profile popup, see decisions log #63; bank/QR section, #82
-    PlayerBankQr.vue             # shared QR + bank-label block, used by PlayerDetailDialog.vue and players/[id].vue — see decisions log #84
+    PlayerBankQr.vue             # shared QR + bank-label block (wraps QrPreview), used by PlayerDetailDialog.vue and players/[id].vue — see decisions log #84
     PlayerSlider.vue             # GSAP infinite-loop carousel alt view, see decisions log #64
     PlayerRadarChart.vue         # inline-SVG radar chart, player attributes panel
     PlayerEditDialog.vue         # name, score, role always visible; Discord ID/bank account/tags in an Accordion (decisions log #84), bank account added in #81

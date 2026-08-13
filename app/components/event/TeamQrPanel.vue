@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect } from 'vue'
+import { computed, ref } from 'vue'
 import type { EventVoter } from '#shared/types'
 import { BanknoteIcon, QrCodeIcon } from '@lucide/vue'
 import {
@@ -7,9 +7,9 @@ import {
 } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import QrPreview from '@/components/QrPreview.vue'
 import { buildVietQrPayload, getBankByKey } from '#shared/utils/vietqr'
 import { pickTransferMessage, TRANSFER_AMOUNT } from '#shared/utils/transfer-messages'
-import { renderBloodyQr } from '@/lib/qr-render'
 
 const props = defineProps<{
   teamA: EventVoter[]
@@ -52,29 +52,18 @@ function messageFor(discordUserId: string) {
   return messageCache.get(discordUserId)!
 }
 
-// QR payload building + rendering both happen client-side only (see shared/utils/vietqr.ts) —
-// no server round trip needed, so this is just an in-memory cache of discordUserId -> data URL.
-const qrDataUrls = ref<Record<string, string>>({})
-
-async function renderQr(discordUserId: string) {
-  if (qrDataUrls.value[discordUserId]) return
+// QR payload building happens client-side only (see shared/utils/vietqr.ts) — rendering itself
+// (both the inline size and the click-to-enlarge lightbox) is handled by QrPreview.
+function payloadFor(discordUserId: string): string | null {
   const bankAccount = bankAccountFor(discordUserId)
-  if (!bankAccount) return
-  const payload = buildVietQrPayload({
+  if (!bankAccount) return null
+  return buildVietQrPayload({
     bankKey: bankAccount.bankKey,
     accountNumber: bankAccount.accountNumber,
     amount: TRANSFER_AMOUNT,
     purpose: messageFor(discordUserId)
   })
-  if (!payload) return
-  const dataUrl = await renderBloodyQr(payload)
-  qrDataUrls.value = { ...qrDataUrls.value, [discordUserId]: dataUrl }
 }
-
-watchEffect(() => {
-  if (qrPersonA.value) renderQr(qrPersonA.value.discordUserId)
-  if (qrPersonB.value) renderQr(qrPersonB.value.discordUserId)
-})
 
 function bankShortName(discordUserId: string) {
   const bankAccount = bankAccountFor(discordUserId)
@@ -92,11 +81,6 @@ function accountNumber(discordUserId: string) {
 
 const viewAllOpen = ref(false)
 const allWithBank = computed(() => [...props.teamA, ...props.teamB].filter(v => bankAccountFor(v.discordUserId)))
-
-watchEffect(() => {
-  if (!viewAllOpen.value) return
-  for (const voter of allWithBank.value) renderQr(voter.discordUserId)
-})
 </script>
 
 <template>
@@ -124,17 +108,7 @@ watchEffect(() => {
             <span class="h-3.5 w-1 rounded-b-full bg-red-600" />
             <span class="h-2 w-1 rounded-b-full bg-red-600" />
           </div>
-          <div class="rounded-md border-2 border-white bg-white p-1.5">
-            <img
-              v-if="qrDataUrls[qrPersonA.discordUserId]"
-              :src="qrDataUrls[qrPersonA.discordUserId]"
-              :alt="`Mã QR chuyển khoản cho ${qrPersonA.username}`"
-              class="size-32"
-            >
-            <div v-else class="flex size-32 items-center justify-center">
-              <QrCodeIcon class="size-6 animate-pulse text-black/30" />
-            </div>
-          </div>
+          <QrPreview :payload="payloadFor(qrPersonA.discordUserId)" :alt="`Mã QR chuyển khoản cho ${qrPersonA.username}`" :size="152" />
         </div>
         <p class="text-center text-[11px] text-red-200/80">{{ bankShortName(qrPersonA.discordUserId) }} · {{ accountNumber(qrPersonA.discordUserId) }}</p>
       </div>
@@ -160,17 +134,7 @@ watchEffect(() => {
             <span class="h-3.5 w-1 rounded-b-full bg-orange-600" />
             <span class="h-2.5 w-1 rounded-b-full bg-orange-600" />
           </div>
-          <div class="rounded-md border-2 border-white bg-white p-1.5">
-            <img
-              v-if="qrDataUrls[qrPersonB.discordUserId]"
-              :src="qrDataUrls[qrPersonB.discordUserId]"
-              :alt="`Mã QR chuyển khoản cho ${qrPersonB.username}`"
-              class="size-32"
-            >
-            <div v-else class="flex size-32 items-center justify-center">
-              <QrCodeIcon class="size-6 animate-pulse text-black/30" />
-            </div>
-          </div>
+          <QrPreview :payload="payloadFor(qrPersonB.discordUserId)" :alt="`Mã QR chuyển khoản cho ${qrPersonB.username}`" :size="152" />
         </div>
         <p class="text-center text-[11px] text-orange-200/80">{{ bankShortName(qrPersonB.discordUserId) }} · {{ accountNumber(qrPersonB.discordUserId) }}</p>
       </div>
@@ -213,17 +177,7 @@ watchEffect(() => {
                 <span class="h-2.5 w-0.5 rounded-b-full bg-red-600" />
                 <span class="h-1.5 w-0.5 rounded-b-full bg-red-600" />
               </div>
-              <div class="rounded-md border-2 border-white bg-white p-1">
-                <img
-                  v-if="qrDataUrls[voter.discordUserId]"
-                  :src="qrDataUrls[voter.discordUserId]"
-                  :alt="`Mã QR chuyển khoản cho ${voter.username}`"
-                  class="size-28"
-                >
-                <div v-else class="flex size-28 items-center justify-center">
-                  <QrCodeIcon class="size-5 animate-pulse text-black/30" />
-                </div>
-              </div>
+              <QrPreview :payload="payloadFor(voter.discordUserId)" :alt="`Mã QR chuyển khoản cho ${voter.username}`" :size="128" />
             </div>
             <p class="text-center text-[10px] text-red-200/80">{{ bankShortName(voter.discordUserId) }} · {{ accountNumber(voter.discordUserId) }}</p>
           </div>
