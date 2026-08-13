@@ -2,10 +2,14 @@
 import { computed, ref, watch } from 'vue'
 import type { Player, Role, TagKind } from '#shared/types'
 import { ROLES } from '#shared/types'
-import { ChevronsUpDownIcon, LoaderCircleIcon, PlusIcon, XIcon } from '@lucide/vue'
+import { CheckIcon, ChevronsUpDownIcon, LoaderCircleIcon, PlusIcon, XIcon } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import {
+  Combobox, ComboboxAnchor, ComboboxEmpty, ComboboxGroup,
+  ComboboxInput, ComboboxItem, ComboboxItemIndicator, ComboboxList, ComboboxTrigger
+} from '@/components/ui/combobox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -34,7 +38,6 @@ const discordUserId = ref('')
 const bankKey = ref(NO_BANK)
 const bankAccountNumber = ref('')
 const bankAccountName = ref('')
-const bankPopoverOpen = ref(false)
 const photoDataUrl = ref<string | undefined>()
 const saving = ref(false)
 
@@ -67,15 +70,16 @@ const bankAccountPayload = computed(() => {
     accountName: bankAccountName.value.trim() || name.value.trim() || undefined
   }
 })
-const selectedBankLabel = computed(() => {
-  if (bankKey.value === NO_BANK) return 'No bank linked'
-  const bank = VIETQR_BANKS.find(b => b.key === bankKey.value)
-  return bank ? `${bank.shortName} — ${bank.name}` : 'No bank linked'
+const NO_BANK_OPTION = { key: NO_BANK, bin: '', name: 'No bank linked', shortName: '' }
+const bankOptions = computed(() => [NO_BANK_OPTION, ...VIETQR_BANKS])
+const selectedBank = computed({
+  get: () => bankOptions.value.find(bank => bank.key === bankKey.value) ?? NO_BANK_OPTION,
+  set: option => { bankKey.value = option?.key ?? NO_BANK }
 })
-function selectBank(key: string) {
-  bankKey.value = key
-  bankPopoverOpen.value = false
-}
+const selectedBankLabel = computed(() => {
+  const bank = selectedBank.value
+  return bank.key === NO_BANK ? 'No bank linked' : `${bank.shortName} — ${bank.name}`
+})
 const roleDescription = computed(() => ROLES.find(r => r.value === role.value)?.description ?? '')
 const selectedTagIds = computed(() => Object.keys(tagLevels.value))
 const availableTags = computed(() => tags.value.filter(tag => !(tag.id in tagLevels.value)))
@@ -209,28 +213,28 @@ async function submit() {
           <FieldGroup>
             <Field>
               <FieldLabel for="player-bank">Bank</FieldLabel>
-              <Popover v-model:open="bankPopoverOpen">
-                <PopoverTrigger as-child>
-                  <Button id="player-bank" type="button" variant="outline" role="combobox" :aria-expanded="bankPopoverOpen" class="w-full justify-between font-normal">
-                    <span class="truncate">{{ selectedBankLabel }}</span>
-                    <ChevronsUpDownIcon class="shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent class="w-[--radix-popover-trigger-width] min-w-72 p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search bank…" />
-                    <CommandList>
-                      <CommandEmpty>No bank found.</CommandEmpty>
-                      <CommandGroup>
-                        <CommandItem value="No bank linked" @select="selectBank(NO_BANK)">No bank linked</CommandItem>
-                        <CommandItem v-for="bank in VIETQR_BANKS" :key="bank.key" :value="`${bank.shortName} ${bank.name}`" @select="selectBank(bank.key)">
-                          {{ bank.shortName }} — {{ bank.name }}
-                        </CommandItem>
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Combobox v-model="selectedBank" by="key">
+                <ComboboxAnchor as-child>
+                  <ComboboxTrigger as-child>
+                    <Button id="player-bank" type="button" variant="outline" class="w-full justify-between font-normal">
+                      <span class="truncate">{{ selectedBankLabel }}</span>
+                      <ChevronsUpDownIcon class="shrink-0 opacity-50" />
+                    </Button>
+                  </ComboboxTrigger>
+                </ComboboxAnchor>
+                <ComboboxList>
+                  <ComboboxInput placeholder="Search bank…" />
+                  <ComboboxEmpty>No bank found.</ComboboxEmpty>
+                  <ComboboxGroup>
+                    <ComboboxItem v-for="bank in bankOptions" :key="bank.key" :value="bank">
+                      {{ bank.key === NO_BANK ? 'No bank linked' : `${bank.shortName} — ${bank.name}` }}
+                      <ComboboxItemIndicator>
+                        <CheckIcon />
+                      </ComboboxItemIndicator>
+                    </ComboboxItem>
+                  </ComboboxGroup>
+                </ComboboxList>
+              </Combobox>
             </Field>
             <template v-if="bankKey !== NO_BANK">
               <Field>
