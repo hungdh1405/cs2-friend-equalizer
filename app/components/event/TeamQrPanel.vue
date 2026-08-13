@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { buildVietQrPayload, getBankByKey } from '#shared/utils/vietqr'
 import { pickTransferMessage } from '#shared/utils/transfer-messages'
+import { renderBloodyQr } from '@/lib/qr-render'
 
 const props = defineProps<{
   teamA: EventVoter[]
@@ -65,8 +66,7 @@ async function renderQr(discordUserId: string) {
     purpose: messageFor(discordUserId)
   })
   if (!payload) return
-  const QRCode = await import('qrcode')
-  const dataUrl = await QRCode.toDataURL(payload, { margin: 1, width: 240 })
+  const dataUrl = await renderBloodyQr(payload)
   qrDataUrls.value = { ...qrDataUrls.value, [discordUserId]: dataUrl }
 }
 
@@ -117,15 +117,22 @@ watchEffect(() => {
           </Avatar>
           <span class="text-xs font-medium text-red-50">{{ accountHolder(qrPersonA) }}</span>
         </div>
-        <div class="rounded-md border-2 border-white bg-white p-1.5">
-          <img
-            v-if="qrDataUrls[qrPersonA.discordUserId]"
-            :src="qrDataUrls[qrPersonA.discordUserId]"
-            :alt="`Mã QR chuyển khoản cho ${qrPersonA.username}`"
-            class="size-32"
-          >
-          <div v-else class="flex size-32 items-center justify-center">
-            <QrCodeIcon class="size-6 animate-pulse text-black/30" />
+        <div class="relative">
+          <div class="absolute -top-1.5 left-1/2 flex -translate-x-1/2 gap-3">
+            <span class="h-2.5 w-1 rounded-b-full bg-red-600" />
+            <span class="h-3.5 w-1 rounded-b-full bg-red-600" />
+            <span class="h-2 w-1 rounded-b-full bg-red-600" />
+          </div>
+          <div class="rounded-md border-2 border-white bg-white p-1.5">
+            <img
+              v-if="qrDataUrls[qrPersonA.discordUserId]"
+              :src="qrDataUrls[qrPersonA.discordUserId]"
+              :alt="`Mã QR chuyển khoản cho ${qrPersonA.username}`"
+              class="size-32"
+            >
+            <div v-else class="flex size-32 items-center justify-center">
+              <QrCodeIcon class="size-6 animate-pulse text-black/30" />
+            </div>
           </div>
         </div>
         <p class="text-center text-[11px] text-red-200/80">{{ bankShortName(qrPersonA.discordUserId) }} · {{ accountNumber(qrPersonA.discordUserId) }}</p>
@@ -146,15 +153,22 @@ watchEffect(() => {
           </Avatar>
           <span class="text-xs font-medium text-orange-50">{{ accountHolder(qrPersonB) }}</span>
         </div>
-        <div class="rounded-md border-2 border-white bg-white p-1.5">
-          <img
-            v-if="qrDataUrls[qrPersonB.discordUserId]"
-            :src="qrDataUrls[qrPersonB.discordUserId]"
-            :alt="`Mã QR chuyển khoản cho ${qrPersonB.username}`"
-            class="size-32"
-          >
-          <div v-else class="flex size-32 items-center justify-center">
-            <QrCodeIcon class="size-6 animate-pulse text-black/30" />
+        <div class="relative">
+          <div class="absolute -top-1.5 left-1/2 flex -translate-x-1/2 gap-3">
+            <span class="h-2 w-1 rounded-b-full bg-orange-600" />
+            <span class="h-3.5 w-1 rounded-b-full bg-orange-600" />
+            <span class="h-2.5 w-1 rounded-b-full bg-orange-600" />
+          </div>
+          <div class="rounded-md border-2 border-white bg-white p-1.5">
+            <img
+              v-if="qrDataUrls[qrPersonB.discordUserId]"
+              :src="qrDataUrls[qrPersonB.discordUserId]"
+              :alt="`Mã QR chuyển khoản cho ${qrPersonB.username}`"
+              class="size-32"
+            >
+            <div v-else class="flex size-32 items-center justify-center">
+              <QrCodeIcon class="size-6 animate-pulse text-black/30" />
+            </div>
           </div>
         </div>
         <p class="text-center text-[11px] text-orange-200/80">{{ bankShortName(qrPersonB.discordUserId) }} · {{ accountNumber(qrPersonB.discordUserId) }}</p>
@@ -192,15 +206,22 @@ watchEffect(() => {
               </Avatar>
               <span class="truncate text-xs font-medium text-red-50">{{ accountHolder(voter) }}</span>
             </div>
-            <div class="rounded-md border-2 border-white bg-white p-1">
-              <img
-                v-if="qrDataUrls[voter.discordUserId]"
-                :src="qrDataUrls[voter.discordUserId]"
-                :alt="`Mã QR chuyển khoản cho ${voter.username}`"
-                class="size-28"
-              >
-              <div v-else class="flex size-28 items-center justify-center">
-                <QrCodeIcon class="size-5 animate-pulse text-black/30" />
+            <div class="relative">
+              <div class="absolute -top-1 left-1/2 flex -translate-x-1/2 gap-2">
+                <span class="h-1.5 w-0.5 rounded-b-full bg-red-600" />
+                <span class="h-2.5 w-0.5 rounded-b-full bg-red-600" />
+                <span class="h-1.5 w-0.5 rounded-b-full bg-red-600" />
+              </div>
+              <div class="rounded-md border-2 border-white bg-white p-1">
+                <img
+                  v-if="qrDataUrls[voter.discordUserId]"
+                  :src="qrDataUrls[voter.discordUserId]"
+                  :alt="`Mã QR chuyển khoản cho ${voter.username}`"
+                  class="size-28"
+                >
+                <div v-else class="flex size-28 items-center justify-center">
+                  <QrCodeIcon class="size-5 animate-pulse text-black/30" />
+                </div>
               </div>
             </div>
             <p class="text-center text-[10px] text-red-200/80">{{ bankShortName(voter.discordUserId) }} · {{ accountNumber(voter.discordUserId) }}</p>
