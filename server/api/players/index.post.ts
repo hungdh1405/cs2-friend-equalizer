@@ -1,13 +1,21 @@
 import { z } from 'zod'
 import type { Player } from '#shared/types'
 import { ROLES } from '#shared/types'
+import { VIETQR_BANKS } from '#shared/utils/vietqr'
+
+const bankAccountSchema = z.object({
+  bankKey: z.string().refine(value => VIETQR_BANKS.some(bank => bank.key === value), 'Invalid bank'),
+  accountNumber: z.string().trim().min(1).max(30),
+  accountName: z.string().trim().max(60).optional()
+}).nullable().optional()
 
 const bodySchema = z.object({
   name: z.string().trim().min(1).max(40),
   score: z.number().min(0).max(120),
   role: z.string().refine(value => ROLES.some(role => role.value === value), 'Invalid role'),
   tagLevels: z.record(z.string(), z.number().min(1).max(5)).optional(),
-  discordUserId: z.union([z.string().regex(/^\d{15,25}$/), z.literal('')]).optional()
+  discordUserId: z.union([z.string().regex(/^\d{15,25}$/), z.literal('')]).optional(),
+  bankAccount: bankAccountSchema
 })
 
 export default defineEventHandler(async (event) => {
@@ -21,6 +29,7 @@ export default defineEventHandler(async (event) => {
     role: body.role as Player['role'],
     tagLevels: body.tagLevels ?? {},
     discordUserId: body.discordUserId || undefined,
+    bankAccount: body.bankAccount ?? undefined,
     hasPhoto: false,
     createdAt: now,
     updatedAt: now

@@ -14,8 +14,11 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { CrudCancelledError } from '@/composables/useCrudGate'
 import { cn } from '@/lib/utils'
 import { tagBgClass } from '@/lib/tag-colors'
+import { VIETQR_BANKS } from '#shared/utils/vietqr'
 import PlayerPhotoUpload from './PlayerPhotoUpload.vue'
 import TagCreateInline from './TagCreateInline.vue'
+
+const NO_BANK = '__none__'
 
 const props = defineProps<{ open: boolean, player?: Player | null }>()
 const emit = defineEmits<{ 'update:open': [boolean] }>()
@@ -28,6 +31,9 @@ const score = ref(50)
 const role = ref<Role>('rifler')
 const tagLevels = ref<Record<string, number>>({})
 const discordUserId = ref('')
+const bankKey = ref(NO_BANK)
+const bankAccountNumber = ref('')
+const bankAccountName = ref('')
 const photoDataUrl = ref<string | undefined>()
 const saving = ref(false)
 
@@ -37,6 +43,9 @@ function resetForm() {
   role.value = props.player?.role ?? 'rifler'
   tagLevels.value = { ...(props.player?.tagLevels ?? {}) }
   discordUserId.value = props.player?.discordUserId ?? ''
+  bankKey.value = props.player?.bankAccount?.bankKey ?? NO_BANK
+  bankAccountNumber.value = props.player?.bankAccount?.accountNumber ?? ''
+  bankAccountName.value = props.player?.bankAccount?.accountName ?? ''
   photoDataUrl.value = undefined
 }
 
@@ -45,6 +54,16 @@ watch(() => props.open, (isOpen) => {
 })
 
 const isEdit = computed(() => Boolean(props.player))
+// null clears the bank link on save (matches the API's null-clears/omit-keeps convention) —
+// a bank picked with no account number typed yet doesn't count as "set" either.
+const bankAccountPayload = computed(() => {
+  if (bankKey.value === NO_BANK || !bankAccountNumber.value.trim()) return null
+  return {
+    bankKey: bankKey.value,
+    accountNumber: bankAccountNumber.value.trim(),
+    accountName: bankAccountName.value.trim() || undefined
+  }
+})
 const roleDescription = computed(() => ROLES.find(r => r.value === role.value)?.description ?? '')
 const selectedTagIds = computed(() => Object.keys(tagLevels.value))
 const availableTags = computed(() => tags.value.filter(tag => !(tag.id in tagLevels.value)))
@@ -89,7 +108,8 @@ async function submit() {
         score: score.value,
         role: role.value,
         tagLevels: tagLevels.value,
-        discordUserId: discordUserId.value.trim()
+        discordUserId: discordUserId.value.trim(),
+        bankAccount: bankAccountPayload.value
       })
       playerId = updated.id
       toast.success(`Updated ${updated.name}.`)
@@ -99,7 +119,8 @@ async function submit() {
         score: score.value,
         role: role.value,
         tagLevels: tagLevels.value,
-        discordUserId: discordUserId.value.trim()
+        discordUserId: discordUserId.value.trim(),
+        bankAccount: bankAccountPayload.value
       })
       playerId = created.id
       toast.success(`${created.name} joined the roster.`)
@@ -169,6 +190,40 @@ async function submit() {
             </FieldDescription>
           </Field>
         </FieldGroup>
+
+        <FieldSet>
+          <FieldLegend variant="label">Bank account</FieldLegend>
+          <FieldDescription>Optional — powers the team payout QR codes on /event.</FieldDescription>
+          <FieldGroup>
+            <Field>
+              <FieldLabel for="player-bank">Bank</FieldLabel>
+              <Select v-model="bankKey">
+                <SelectTrigger id="player-bank" class="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem :value="NO_BANK">No bank linked</SelectItem>
+                    <SelectItem v-for="bank in VIETQR_BANKS" :key="bank.key" :value="bank.key">
+                      {{ bank.shortName }} — {{ bank.name }}
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+            <template v-if="bankKey !== NO_BANK">
+              <Field>
+                <FieldLabel for="player-bank-number">Account number</FieldLabel>
+                <Input id="player-bank-number" v-model="bankAccountNumber" maxlength="30" placeholder="e.g. 0123456789" />
+              </Field>
+              <Field>
+                <FieldLabel for="player-bank-name">Account holder name (optional)</FieldLabel>
+                <Input id="player-bank-name" v-model="bankAccountName" maxlength="60" placeholder="e.g. NGUYEN VAN A" />
+                <FieldDescription>Shown next to the QR so whoever's paying can confirm it's the right person.</FieldDescription>
+              </Field>
+            </template>
+          </FieldGroup>
+        </FieldSet>
 
         <FieldSet>
           <FieldLegend variant="label">Tags</FieldLegend>

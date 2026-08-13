@@ -1,5 +1,12 @@
 import { z } from 'zod'
 import { ROLES } from '#shared/types'
+import { VIETQR_BANKS } from '#shared/utils/vietqr'
+
+const bankAccountSchema = z.object({
+  bankKey: z.string().refine(value => VIETQR_BANKS.some(bank => bank.key === value), 'Invalid bank'),
+  accountNumber: z.string().trim().min(1).max(30),
+  accountName: z.string().trim().max(60).optional()
+}).nullable().optional()
 
 const bodySchema = z.object({
   name: z.string().trim().min(1).max(40).optional(),
@@ -7,7 +14,9 @@ const bodySchema = z.object({
   role: z.string().refine(value => ROLES.some(role => role.value === value), 'Invalid role').optional(),
   tagLevels: z.record(z.string(), z.number().min(1).max(5)).optional(),
   // Empty string clears the link; a real Discord ID is a 15-25 digit snowflake.
-  discordUserId: z.union([z.string().regex(/^\d{15,25}$/), z.literal('')]).optional()
+  discordUserId: z.union([z.string().regex(/^\d{15,25}$/), z.literal('')]).optional(),
+  // null explicitly clears the bank link; omitted entirely means "leave it as-is".
+  bankAccount: bankAccountSchema
 })
 
 function roleLabel(value: string): string {
@@ -32,6 +41,7 @@ export default defineEventHandler(async (event) => {
     role: (body.role as typeof old.role) ?? old.role,
     tagLevels: body.tagLevels ?? old.tagLevels,
     discordUserId: body.discordUserId !== undefined ? (body.discordUserId || undefined) : old.discordUserId,
+    bankAccount: body.bankAccount !== undefined ? (body.bankAccount ?? undefined) : old.bankAccount,
     updatedAt: new Date().toISOString()
   }
 

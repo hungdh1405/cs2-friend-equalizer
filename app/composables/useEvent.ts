@@ -34,9 +34,9 @@ export function useEvent() {
     return updated
   }
 
-  async function saveManualTeams(teamA: string[], teamB: string[]) {
+  async function saveManualTeams(teamA: string[], teamB: string[], leaderA?: string, leaderB?: string) {
     await ensureCrudToken()
-    const updated = await $fetch<GameEvent>('/api/events/teams', { method: 'PATCH', body: { teamA, teamB } })
+    const updated = await $fetch<GameEvent>('/api/events/teams', { method: 'PATCH', body: { teamA, teamB, leaderA, leaderB } })
     currentEvent.value = updated
     return updated
   }

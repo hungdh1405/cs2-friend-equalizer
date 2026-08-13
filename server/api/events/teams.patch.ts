@@ -9,7 +9,9 @@ import { buildPredictionComponents, buildPredictionEmbed } from '../../utils/dis
 // prediction poll, and announces the lineup to Discord.
 const bodySchema = z.object({
   teamA: z.array(z.string()),
-  teamB: z.array(z.string())
+  teamB: z.array(z.string()),
+  leaderA: z.string().optional(),
+  leaderB: z.string().optional()
 })
 
 export default defineEventHandler(async (event) => {
@@ -29,10 +31,17 @@ export default defineEventHandler(async (event) => {
   const teamA = [...new Set(body.teamA)].filter(id => voterIds.has(id))
   const teamASet = new Set(teamA)
   const teamB = [...new Set(body.teamB)].filter(id => voterIds.has(id) && !teamASet.has(id))
+  // A leader must actually be on the team they're leading — a stale/mismatched client pick
+  // (e.g. the drag happened after the leader was chosen) is silently dropped rather than
+  // saved into an inconsistent state.
+  const leaderA = body.leaderA && teamA.includes(body.leaderA) ? body.leaderA : undefined
+  const leaderB = body.leaderB && teamB.includes(body.leaderB) ? body.leaderB : undefined
 
   const manualTeams: ManualTeams = {
     teamA,
     teamB,
+    leaderA,
+    leaderB,
     updatedAt: new Date().toISOString(),
     predictions: { teamA: [], teamB: [] }
   }

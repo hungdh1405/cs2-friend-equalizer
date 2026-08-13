@@ -6,6 +6,9 @@ export interface PlayerInput {
   role: Role
   tagLevels?: Record<string, number>
   discordUserId?: string
+  /** `null` explicitly clears the bank link on update; omit the key entirely to leave it
+   * unchanged. See shared/types' Player.bankAccount doc comment. */
+  bankAccount?: { bankKey: string, accountNumber: string, accountName?: string } | null
 }
 
 export function usePlayers() {

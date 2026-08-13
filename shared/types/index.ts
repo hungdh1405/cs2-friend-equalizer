@@ -36,6 +36,17 @@ export interface Player {
    * tier callouts) and weekly team-split generation. Set by an admin via the edit form —
    * there is no automated linking (Discord usernames and roster names are unrelated). */
   discordUserId?: string
+  /** Vietnamese bank account, for the team QR codes on /event (see shared/utils/vietqr.ts) —
+   * set by an admin via the edit form, same as discordUserId. `bankKey` matches a key in
+   * vietnam-qr-pay's BanksObject (e.g. "vietcombank"), not a free-typed bank name. */
+  bankAccount?: {
+    bankKey: string
+    accountNumber: string
+    /** Shown alongside the QR so whoever's paying can confirm they've got the right person —
+     * VietQR itself doesn't require this (banks resolve the name from bin+account number on
+     * their end), it's purely a trust/confirmation label in this app's own UI. */
+    accountName?: string
+  }
   createdAt: string
   updatedAt: string
 }
@@ -141,6 +152,11 @@ export interface ManualTeams {
   teamA: string[]
   teamB: string[]
   updatedAt: string
+  /** discordUserId of each team's designated leader — must be a member of that same team.
+   * Drives which team member's bank QR shows by default on /event (falls back to the first
+   * team member with a linked bank account if the leader has none, or wasn't set at all). */
+  leaderA?: string
+  leaderB?: string
   /** The "which team will win?" prediction-poll message, so interactions can find/update it
    * in place. Posted once per saved lineup — re-saving the lineup posts a fresh poll (old
    * predictions are discarded along with it, since they were about the previous matchup). */

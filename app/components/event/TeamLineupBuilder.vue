@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import type { EventVoter } from '#shared/types'
-import { LoaderCircleIcon, ShieldIcon, SwordsIcon } from '@lucide/vue'
+import { CrownIcon, LoaderCircleIcon, ShieldIcon, SwordsIcon } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { CrudCancelledError } from '@/composables/useCrudGate'
 import { prefersReducedMotion, useGSAP } from '@/composables/useGSAP'
 import { cn } from '@/lib/utils'
+import TeamQrPanel from './TeamQrPanel.vue'
 
 const { currentEvent, saveManualTeams } = useEvent()
 const isUnlocked = useIsCrudUnlocked()
@@ -25,6 +26,8 @@ type Column = 'unassigned' | 'teamA' | 'teamB'
 const unassigned = ref<EventVoter[]>([])
 const teamA = ref<EventVoter[]>([])
 const teamB = ref<EventVoter[]>([])
+const leaderA = ref<string | undefined>()
+const leaderB = ref<string | undefined>()
 
 function syncFromEvent() {
   const voters = currentEvent.value?.voters ?? []
@@ -34,6 +37,13 @@ function syncFromEvent() {
   teamA.value = voters.filter(voter => aIds.has(voter.discordUserId))
   teamB.value = voters.filter(voter => bIds.has(voter.discordUserId))
   unassigned.value = voters.filter(voter => !aIds.has(voter.discordUserId) && !bIds.has(voter.discordUserId))
+  leaderA.value = manual?.leaderA
+  leaderB.value = manual?.leaderB
+}
+
+function toggleLeader(team: 'teamA' | 'teamB', discordUserId: string) {
+  const leaderRef = team === 'teamA' ? leaderA : leaderB
+  leaderRef.value = leaderRef.value === discordUserId ? undefined : discordUserId
 }
 
 // Only re-seeds on a genuinely different event or a fresh page load — not on every reactive
@@ -65,6 +75,10 @@ function onDrop(dragEvent: DragEvent, target: Column) {
   fromRef.value = fromRef.value.filter(v => v.discordUserId !== id)
   const targetRef = columnRef(target)
   targetRef.value = [...targetRef.value, voter]
+  // A leader who gets dragged off their team can't stay "leader" of it — the crown pick is
+  // only meaningful while they're actually on that team.
+  if (from === 'teamA' && leaderA.value === id) leaderA.value = undefined
+  if (from === 'teamB' && leaderB.value === id) leaderB.value = undefined
   flashDrop(id)
 }
 
@@ -91,7 +105,7 @@ async function performSave() {
   if (saving.value) return
   saving.value = true
   try {
-    await saveManualTeams(teamA.value.map(voter => voter.discordUserId), teamB.value.map(voter => voter.discordUserId))
+    await saveManualTeams(teamA.value.map(voter => voter.discordUserId), teamB.value.map(voter => voter.discordUserId), leaderA.value, leaderB.value)
     confirmSaveOpen.value = false
     toast.success('Đã lưu đội hình và tuyên chiến trên Discord!')
   } catch (error) {
@@ -122,6 +136,9 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
          unfinished UI rather than a deliberate design choice. -->
     <p v-if="isUnlocked" class="mt-1 text-xs text-red-200/70">
       Kéo thả chiến binh vào Đội A / Đội B, sau đó lưu để tuyên chiến trên Discord.
+    </p>
+    <p v-if="isUnlocked && (teamA.length || teamB.length)" class="mt-1 flex items-center gap-1 text-[11px] text-yellow-400/70">
+      <CrownIcon class="size-3" /> Bấm vào biểu tượng vương miện để chọn thủ lĩnh mỗi đội (người giữ tiền và đưa QR).
     </p>
 
     <div v-if="isUnlocked" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -165,7 +182,7 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
             :key="voter.discordUserId"
             :data-voter-chip="voter.discordUserId"
             draggable="true"
-            class="flex cursor-grab items-center gap-1.5 rounded-md border border-red-500/60 bg-red-950/50 px-1.5 py-1 active:cursor-grabbing"
+            class="flex cursor-grab items-center gap-1 rounded-md border border-red-500/60 bg-red-950/50 px-1.5 py-1 active:cursor-grabbing"
             @dragstart="onDragStart($event, voter)"
           >
             <Avatar class="size-5">
@@ -173,6 +190,15 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
               <AvatarFallback class="text-[10px]">{{ voter.username.slice(0, 2).toUpperCase() }}</AvatarFallback>
             </Avatar>
             <span class="text-xs text-red-50">{{ voter.username }}</span>
+            <button
+              type="button"
+              :aria-label="leaderA === voter.discordUserId ? 'Bỏ làm thủ lĩnh' : 'Chọn làm thủ lĩnh'"
+              :title="leaderA === voter.discordUserId ? 'Thủ lĩnh Đội A' : 'Đặt làm thủ lĩnh Đội A'"
+              class="shrink-0 rounded p-0.5"
+              @click="toggleLeader('teamA', voter.discordUserId)"
+            >
+              <CrownIcon :class="cn('size-3', leaderA === voter.discordUserId ? 'fill-yellow-400 text-yellow-400' : 'text-red-500/40 hover:text-yellow-400/70')" />
+            </button>
           </div>
           <p v-if="!teamA.length" class="text-xs text-red-300/40">Kéo chiến binh vào đây</p>
         </div>
@@ -193,7 +219,7 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
             :key="voter.discordUserId"
             :data-voter-chip="voter.discordUserId"
             draggable="true"
-            class="flex cursor-grab items-center gap-1.5 rounded-md border border-orange-500/60 bg-orange-950/50 px-1.5 py-1 active:cursor-grabbing"
+            class="flex cursor-grab items-center gap-1 rounded-md border border-orange-500/60 bg-orange-950/50 px-1.5 py-1 active:cursor-grabbing"
             @dragstart="onDragStart($event, voter)"
           >
             <Avatar class="size-5">
@@ -201,6 +227,15 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
               <AvatarFallback class="text-[10px]">{{ voter.username.slice(0, 2).toUpperCase() }}</AvatarFallback>
             </Avatar>
             <span class="text-xs text-orange-50">{{ voter.username }}</span>
+            <button
+              type="button"
+              :aria-label="leaderB === voter.discordUserId ? 'Bỏ làm thủ lĩnh' : 'Chọn làm thủ lĩnh'"
+              :title="leaderB === voter.discordUserId ? 'Thủ lĩnh Đội B' : 'Đặt làm thủ lĩnh Đội B'"
+              class="shrink-0 rounded p-0.5"
+              @click="toggleLeader('teamB', voter.discordUserId)"
+            >
+              <CrownIcon :class="cn('size-3', leaderB === voter.discordUserId ? 'fill-yellow-400 text-yellow-400' : 'text-orange-500/40 hover:text-yellow-400/70')" />
+            </button>
           </div>
           <p v-if="!teamB.length" class="text-xs text-orange-300/40">Kéo chiến binh vào đây</p>
         </div>
@@ -219,6 +254,7 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
               <AvatarFallback class="text-[10px]">{{ voter.username.slice(0, 2).toUpperCase() }}</AvatarFallback>
             </Avatar>
             <span class="text-xs text-red-50">{{ voter.username }}</span>
+            <CrownIcon v-if="leaderA === voter.discordUserId" class="size-3 fill-yellow-400 text-yellow-400" />
           </div>
         </div>
       </div>
@@ -233,10 +269,13 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
               <AvatarFallback class="text-[10px]">{{ voter.username.slice(0, 2).toUpperCase() }}</AvatarFallback>
             </Avatar>
             <span class="text-xs text-orange-50">{{ voter.username }}</span>
+            <CrownIcon v-if="leaderB === voter.discordUserId" class="size-3 fill-yellow-400 text-yellow-400" />
           </div>
         </div>
       </div>
     </div>
+
+    <TeamQrPanel v-if="hasSavedLineup" :team-a="teamA" :team-b="teamB" :leader-a="leaderA" :leader-b="leaderB" class="mt-4" />
 
     <Button v-if="isUnlocked" class="mt-3 bg-red-700 text-white hover:bg-red-600" :disabled="saving" @click="confirmSaveOpen = true">
       <SwordsIcon data-icon="inline-start" />

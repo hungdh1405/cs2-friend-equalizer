@@ -176,6 +176,13 @@ Reasoning behind each call, so it's clear these were deliberate, not defaults:
     - **"Which team will win?" prediction poll**: a *second*, independent Discord message (`buildPredictionEmbed`/`buildPredictionComponents`, `discord-embeds.ts`) with `predict:teamA`/`predict:teamB` buttons, handled by a new branch in `interactions.post.ts` (`handlePrediction`) parallel to the existing vote:in/vote:out branch — same toggle idempotency (one click per side, same side again is a no-op), same message-id staleness guard pattern as #75, but **deliberately posts no per-vote channel message and writes no changelog entry** (explicit request: "dont put notification when vote") — only the poll's own embed updates live via `UPDATE_MESSAGE`. Anyone in the server can predict, not just the assigned players — a side bet, not a participation gate. Re-saving the lineup always posts a brand-new poll (old predictions don't carry over to a different matchup); results are also shown read-only on `/event` for everyone, not just Hosts.
     - **`MANUAL_TEAMS_ANNOUNCED`** (new, 30 entries): explicit request for "combat, fighting words... make them only want to fight for honors, make them very angry if lost" — deliberately the opposite framing from `TEAM_READY`'s "just a suggestion" (#79), since a Host manually saving a lineup *is* a real, deliberate decision. Every assigned player is directly `<@mentioned>` (not just named), and the vocabulary leans on danh dự/nhục nhã (honor/shame) rather than the more measured chiến binh/binh đoàn framing used elsewhere — losing is framed as something to actively dread, winning as the only acceptable outcome.
     - Verified end-to-end: saving a lineup via the API produces exactly the poll message then the hype message in that order with correct content; the prediction toggle state machine (vote → switch → no-op-on-repeat) confirmed via the same signed-interaction technique as #65/#73/#75, with zero additional Discord messages posted across every prediction click; the drag-and-drop UI screenshotted in both unlocked (editable, seeded from the saved lineup) and locked (read-only) states.
+81. **VietQR bank-transfer QR codes for post-match payouts**, per the request to look at [vietnam-qr-pay](https://github.com/xuannghia/vietnam-qr-pay) and let each team's leader collect/hand out a fixed 50.000đ "quỹ chiến" (war-fund) payment via scannable QR, with a "does the QR look bloody too?" follow-up confirming the same red/war visual treatment should extend here.
+    - **Data model**: `Player.bankAccount?: { bankKey: string, accountNumber: string, accountName?: string }` (`shared/types`) — `bankKey` validated server-side (`server/api/players/index.post.ts`/`[id].patch.ts`) against `VIETQR_BANKS`, the 43-of-62 `vietnam-qr-pay` banks that actually support VietQR transfer (`vietQRStatus === TRANSFER_SUPPORTED`; the other 19 have no usable BIN and are filtered out). Same `null`-clears/omit-keeps convention as `discordUserId`. `ManualTeams.leaderA?`/`leaderB?: string` (discordUserId, must be a current member of that team — a stale pick from the client is silently dropped server-side) name each team's designated leader, set via a crown-toggle button on each chip in `TeamLineupBuilder.vue`'s drag-and-drop columns.
+    - **QR building + rendering is entirely client-side** (`shared/utils/vietqr.ts` wraps `vietnam-qr-pay`'s `QRPay.initVietQR().build()`; `app/components/event/TeamQrPanel.vue` renders it via the `qrcode` package's `QRCode.toDataURL()`) — no new server endpoint, since neither step needs a secret or server state, and it sidesteps any Cloudflare Workers runtime-compatibility risk from either npm package.
+    - **`TeamQrPanel.vue`**: per team, resolves the "QR person" as the leader if they've linked a bank account, else the first team member who has — so a team is never QR-less just because its leader forgot to link theirs. Fixed amount (50.000đ, not configurable) and a random pick from `shared/utils/transfer-messages.ts`'s 30-entry `TRANSFER_MESSAGES` pool (plain-ASCII Vietnamese, no diacritics — VietQR transfer-content fields are unreliable with accents — max 10 words each, both constraints checked programmatically, not just eyeballed) as the transfer purpose, e.g. "Toi thua tam phuc khau phuc." A "Xem QR từng chiến binh" dialog separately lists every team member who has bank info linked, each with their own QR, for the leader to hand out individually.
+    - **Visual theme extends #72/#80's red/war vocabulary to the QR display** (dark red/orange gradients, glowing `hud-frame` borders) per explicit confirmation ("Can the QR code look so bloody or not?") — but the QR module itself stays plain high-contrast black-on-white inside a white padded box, since a themed QR pattern risks failing to scan; all the drama goes into the frame around it, never the scannable code.
+    - **Bank account numbers/names are public, no PIN gate** — same as the rest of the roster (names/scores/tags). Flagged explicitly since `/api/players` is a public GET and now also returns `bankAccount` to anyone, a step up in sensitivity from gameplay stats; the user's explicit call was to leave it fully public rather than gate it behind the PIN.
+    - Verified end-to-end against the local fs-backed KV (seeded via direct API calls + a hand-written `event:current` blob, bypassing the need for a real signed Discord interaction just to get test voters): PlayerEditDialog's bank Select + conditional account-number/name inputs; dragging voters into Team A/B and toggling the crown to set a leader (and confirming a dragged-away leader auto-clears); saving produces the correct `leaderA`/`leaderB` in the saved event; the QR panel correctly spotlights the leader when they have a bank account and falls back to another team member when they don't; the "view all" dialog lists exactly the team members with bank info; zero console/page errors across the whole flow (Playwright, `pnpm test` 24/24 green).
 
 | Key | Value | Notes |
 |---|---|---|
@@ -423,7 +430,7 @@ components/
     PlayerDetailDialog.vue       # full-profile popup, see decisions log #63
     PlayerSlider.vue             # GSAP infinite-loop carousel alt view, see decisions log #64
     PlayerRadarChart.vue         # inline-SVG radar chart, player attributes panel
-    PlayerEditDialog.vue         # name, score, role, tag+level picker, photo upload, Discord ID (decisions log #65)
+    PlayerEditDialog.vue         # name, score, role, tag+level picker, photo upload, Discord ID (decisions log #65), bank account (decisions log #81)
     TagCreateInline.vue          # new tag: label + icon + kind
     TagIconPicker.vue            # Popover + Command, searchable curated Lucide set
     PlayerPhotoUpload.vue        # file input -> canvas resize/compress -> base64
@@ -440,7 +447,8 @@ components/
     ChangeLogEntryRow.vue
   event/
     MatchCountdownAlert.vue      # site-wide "bloody C4" countdown banner, GSAP + synthesized beep sound — see decisions log #72
-    TeamLineupBuilder.vue        # manual drag-and-drop Team A/B builder + read-only prediction-poll results, see decisions log #80
+    TeamLineupBuilder.vue        # manual drag-and-drop Team A/B builder + read-only prediction-poll results, see decisions log #80; crown leader-toggle, see #81
+    TeamQrPanel.vue              # per-team VietQR bank-transfer QR + "view all team members' QR" dialog, see decisions log #81
 composables/
   usePlayers.ts                  # roster CRUD via API
   useTags.ts                     # tag catalog CRUD via API
@@ -490,7 +498,7 @@ server/
   utils/discord-notify.ts        # business logic calling the above — reminders (hero/warrior tone, #76), host nudge, team ready, need-link, cancel/create, manual-teams announcement (#80); no per-vote messages (removed in #76), no per-prediction messages either (#80)
   utils/team-generator.ts        # wraps shared/utils/balance.ts's randomBalancedOption() for the match-ready team-split announcement
 shared/
-  types.ts                       # Player, Tag, ChangeLogEntry, GameEvent, EventVoter, Host, ManualTeams (#80) — see §3
+  types.ts                       # Player (bankAccount, #81), Tag, ChangeLogEntry, GameEvent, EventVoter, Host, ManualTeams (#80, leaderA/leaderB #81) — see §3
   utils/balance.ts                # combinations, rolePenalty, scoreOf, desiredTeamSizes, balancedOptions (2-team)
   utils/balanceNTeams.ts          # snake-draft + local-search swap heuristic (any N > 2)
   utils/balance.test.ts
@@ -499,6 +507,8 @@ shared/
   utils/event-status.ts           # hasEventEnded() — always computed live from startsAt, never from a stored flag
   utils/countdown.ts              # getCountdown(targetIso) -> {days,hours,minutes,seconds,totalMs}
   utils/hosts.ts                  # PROTECTED_HOST_DISCORD_ID / isProtectedHost() — see decisions log #71
+  utils/vietqr.ts                 # VIETQR_BANKS (transfer-supported subset), getBankByKey(), buildVietQrPayload() — client-side only, see decisions log #81
+  utils/transfer-messages.ts      # TRANSFER_MESSAGES (30, no-diacritics Vietnamese), pickTransferMessage() — see decisions log #81
 ```
 
 ## 13. Makefile
