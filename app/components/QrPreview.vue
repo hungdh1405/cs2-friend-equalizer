@@ -17,10 +17,14 @@ const dataUrl = ref<string | undefined>()
 const largeDataUrl = ref<string | undefined>()
 const lightboxOpen = ref(false)
 
+// QR rendering must never run during SSR: the `qrcode` package's dependencies (pngjs et al.)
+// hit Node APIs Cloudflare Workers' compatibility layer doesn't fully polyfill, which throws a
+// (cryptic) 500 on every server render — the payload build is isomorphic-safe, but rendering
+// isn't, and this component never actually needed it to run before hydration anyway.
 watch(() => props.payload, async (payload) => {
   dataUrl.value = undefined
   largeDataUrl.value = undefined
-  if (!payload) return
+  if (!import.meta.client || !payload) return
   dataUrl.value = await renderBloodyQr(payload, props.size)
 }, { immediate: true })
 
