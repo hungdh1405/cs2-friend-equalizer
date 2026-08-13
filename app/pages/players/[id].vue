@@ -10,6 +10,7 @@ import { prefersReducedMotion, useGSAP } from '@/composables/useGSAP'
 import { getTier } from '@/lib/tier'
 import { cn } from '@/lib/utils'
 import ChangeLogEntryRow from '@/components/changelog/ChangeLogEntryRow.vue'
+import PlayerBankQr from '@/components/players/PlayerBankQr.vue'
 import PlayerEditDialog from '@/components/players/PlayerEditDialog.vue'
 import PlayerRadarChart from '@/components/players/PlayerRadarChart.vue'
 import PlayerScoreChart from '@/components/players/PlayerScoreChart.vue'
@@ -112,6 +113,15 @@ function tagPropsFor(tagId: string) {
             Edit
           </Button>
         </div>
+      </CardContent>
+    </Card>
+
+    <Card v-if="player.bankAccount" class="detail-block border-border/60 bg-card/70">
+      <CardHeader>
+        <CardTitle class="font-mono text-xs tracking-widest uppercase">Payment QR</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <PlayerBankQr :player="player" />
       </CardContent>
     </Card>
 

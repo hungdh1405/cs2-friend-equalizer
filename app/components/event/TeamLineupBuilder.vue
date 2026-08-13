@@ -14,7 +14,7 @@ import { prefersReducedMotion, useGSAP } from '@/composables/useGSAP'
 import { cn } from '@/lib/utils'
 import TeamQrPanel from './TeamQrPanel.vue'
 
-const { currentEvent, saveManualTeams } = useEvent()
+const { currentEvent, saveManualTeams, updateLeaders } = useEvent()
 const isUnlocked = useIsCrudUnlocked()
 
 function avatarUrl(voter: { discordUserId: string, avatar: string | null }) {
@@ -41,9 +41,40 @@ function syncFromEvent() {
   leaderB.value = manual?.leaderB
 }
 
-function toggleLeader(team: 'teamA' | 'teamB', discordUserId: string) {
+// True once there's a saved lineup on the server AND the local columns still match it exactly
+// — i.e. nothing from an in-progress drag is waiting on the big Save button. Only then is it
+// safe to persist a leader pick immediately: otherwise the leader-only endpoint would validate
+// against team assignments that don't reflect what the Host is looking at yet.
+function teamsMatchServerLineup(): boolean {
+  const manual = currentEvent.value?.manualTeams
+  if (!manual) return false
+  const sameIds = (local: EventVoter[], saved: string[]) =>
+    local.length === saved.length && local.every(voter => saved.includes(voter.discordUserId))
+  return sameIds(teamA.value, manual.teamA) && sameIds(teamB.value, manual.teamB)
+}
+
+const savingLeaderFor = ref<string | null>(null)
+
+async function toggleLeader(team: 'teamA' | 'teamB', discordUserId: string) {
+  if (savingLeaderFor.value) return
   const leaderRef = team === 'teamA' ? leaderA : leaderB
-  leaderRef.value = leaderRef.value === discordUserId ? undefined : discordUserId
+  const previous = leaderRef.value
+  leaderRef.value = previous === discordUserId ? undefined : discordUserId
+
+  // No saved lineup yet, or a drag change is still pending — the leader pick just stays local
+  // and takes effect the next time the Host presses the big Save button, same as before.
+  if (!teamsMatchServerLineup()) return
+
+  savingLeaderFor.value = discordUserId
+  try {
+    await updateLeaders(leaderA.value, leaderB.value)
+    toast.success('Đã cập nhật thủ lĩnh.')
+  } catch (error) {
+    leaderRef.value = previous
+    if (!(error instanceof CrudCancelledError)) toast.error('Không thể lưu thủ lĩnh.')
+  } finally {
+    savingLeaderFor.value = null
+  }
 }
 
 // Only re-seeds on a genuinely different event or a fresh page load — not on every reactive
@@ -192,12 +223,14 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
             <span class="text-xs text-red-50">{{ voter.username }}</span>
             <button
               type="button"
+              :disabled="Boolean(savingLeaderFor)"
               :aria-label="leaderA === voter.discordUserId ? 'Bỏ làm thủ lĩnh' : 'Chọn làm thủ lĩnh'"
               :title="leaderA === voter.discordUserId ? 'Thủ lĩnh Đội A' : 'Đặt làm thủ lĩnh Đội A'"
-              class="shrink-0 rounded p-0.5"
+              class="shrink-0 rounded p-0.5 disabled:opacity-60"
               @click="toggleLeader('teamA', voter.discordUserId)"
             >
-              <CrownIcon :class="cn('size-3', leaderA === voter.discordUserId ? 'fill-yellow-400 text-yellow-400' : 'text-red-500/40 hover:text-yellow-400/70')" />
+              <LoaderCircleIcon v-if="savingLeaderFor === voter.discordUserId" class="size-3 animate-spin text-yellow-400" />
+              <CrownIcon v-else :class="cn('size-3', leaderA === voter.discordUserId ? 'fill-yellow-400 text-yellow-400' : 'text-red-500/40 hover:text-yellow-400/70')" />
             </button>
           </div>
           <p v-if="!teamA.length" class="text-xs text-red-300/40">Kéo chiến binh vào đây</p>
@@ -229,12 +262,14 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
             <span class="text-xs text-orange-50">{{ voter.username }}</span>
             <button
               type="button"
+              :disabled="Boolean(savingLeaderFor)"
               :aria-label="leaderB === voter.discordUserId ? 'Bỏ làm thủ lĩnh' : 'Chọn làm thủ lĩnh'"
               :title="leaderB === voter.discordUserId ? 'Thủ lĩnh Đội B' : 'Đặt làm thủ lĩnh Đội B'"
-              class="shrink-0 rounded p-0.5"
+              class="shrink-0 rounded p-0.5 disabled:opacity-60"
               @click="toggleLeader('teamB', voter.discordUserId)"
             >
-              <CrownIcon :class="cn('size-3', leaderB === voter.discordUserId ? 'fill-yellow-400 text-yellow-400' : 'text-orange-500/40 hover:text-yellow-400/70')" />
+              <LoaderCircleIcon v-if="savingLeaderFor === voter.discordUserId" class="size-3 animate-spin text-yellow-400" />
+              <CrownIcon v-else :class="cn('size-3', leaderB === voter.discordUserId ? 'fill-yellow-400 text-yellow-400' : 'text-orange-500/40 hover:text-yellow-400/70')" />
             </button>
           </div>
           <p v-if="!teamB.length" class="text-xs text-orange-300/40">Kéo chiến binh vào đây</p>

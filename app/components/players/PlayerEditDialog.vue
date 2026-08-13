@@ -4,6 +4,7 @@ import type { Player, Role, TagKind } from '#shared/types'
 import { ROLES } from '#shared/types'
 import { CheckIcon, ChevronsUpDownIcon, LoaderCircleIcon, PlusIcon, XIcon } from '@lucide/vue'
 import { toast } from 'vue-sonner'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import {
@@ -11,7 +12,7 @@ import {
   ComboboxInput, ComboboxItem, ComboboxItemIndicator, ComboboxList, ComboboxTrigger
 } from '@/components/ui/combobox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -197,121 +198,140 @@ async function submit() {
             </Select>
             <FieldDescription>{{ roleDescription }}</FieldDescription>
           </Field>
-
-          <Field>
-            <FieldLabel for="player-discord-id">Discord ID</FieldLabel>
-            <Input id="player-discord-id" v-model="discordUserId" placeholder="Optional — enables VIP vote messages and team-split" maxlength="25" />
-            <FieldDescription>
-              Links this player to their Discord account, so the bot's vote messages and weekly team splits know who they are. Right-click their name in Discord → Copy User ID (enable Developer Mode first).
-            </FieldDescription>
-          </Field>
         </FieldGroup>
 
-        <FieldSet>
-          <FieldLegend variant="label">Bank account</FieldLegend>
-          <FieldDescription>Optional — powers the team payout QR codes on /event.</FieldDescription>
-          <FieldGroup>
-            <Field>
-              <FieldLabel for="player-bank">Bank</FieldLabel>
-              <Combobox v-model="selectedBank" by="key">
-                <ComboboxAnchor as-child>
-                  <ComboboxTrigger as-child>
-                    <Button id="player-bank" type="button" variant="outline" class="w-full justify-between font-normal">
-                      <span class="truncate">{{ selectedBankLabel }}</span>
-                      <ChevronsUpDownIcon class="shrink-0 opacity-50" />
-                    </Button>
-                  </ComboboxTrigger>
-                </ComboboxAnchor>
-                <ComboboxList>
-                  <ComboboxInput placeholder="Search bank…" />
-                  <ComboboxEmpty>No bank found.</ComboboxEmpty>
-                  <ComboboxGroup>
-                    <ComboboxItem v-for="bank in bankOptions" :key="bank.key" :value="bank">
-                      {{ bank.key === NO_BANK ? 'No bank linked' : `${bank.shortName} — ${bank.name}` }}
-                      <ComboboxItemIndicator>
-                        <CheckIcon />
-                      </ComboboxItemIndicator>
-                    </ComboboxItem>
-                  </ComboboxGroup>
-                </ComboboxList>
-              </Combobox>
-            </Field>
-            <template v-if="bankKey !== NO_BANK">
+        <Accordion type="multiple" class="rounded-lg border border-border px-3">
+          <AccordionItem value="discord">
+            <AccordionTrigger>
+              Discord ID
+              <span v-if="discordUserId" class="text-xs font-normal text-muted-foreground">· Linked</span>
+            </AccordionTrigger>
+            <AccordionContent>
               <Field>
-                <FieldLabel for="player-bank-number">Account number</FieldLabel>
-                <Input id="player-bank-number" v-model="bankAccountNumber" maxlength="30" placeholder="e.g. 0123456789" />
+                <Input id="player-discord-id" v-model="discordUserId" placeholder="Optional — enables VIP vote messages and team-split" maxlength="25" />
+                <FieldDescription>
+                  Links this player to their Discord account, so the bot's vote messages and weekly team splits know who they are. Right-click their name in Discord → Copy User ID (enable Developer Mode first).
+                </FieldDescription>
               </Field>
-              <Field>
-                <FieldLabel for="player-bank-name">Account holder name (optional)</FieldLabel>
-                <Input id="player-bank-name" v-model="bankAccountName" maxlength="60" placeholder="e.g. NGUYEN VAN A" />
-                <FieldDescription>Shown next to the QR so whoever's paying can confirm it's the right person.</FieldDescription>
-              </Field>
-            </template>
-          </FieldGroup>
-        </FieldSet>
+            </AccordionContent>
+          </AccordionItem>
 
-        <FieldSet>
-          <FieldLegend variant="label">Tags</FieldLegend>
-          <FieldDescription>Color shows level (1–5) within the tag's category — click a swatch to set it.</FieldDescription>
+          <AccordionItem value="bank">
+            <AccordionTrigger>
+              Bank account
+              <span v-if="bankKey !== NO_BANK" class="text-xs font-normal text-muted-foreground">· Linked</span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <FieldDescription>Optional — powers the team payout QR codes on /event.</FieldDescription>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel for="player-bank">Bank</FieldLabel>
+                  <Combobox v-model="selectedBank" by="key">
+                    <ComboboxAnchor as-child>
+                      <ComboboxTrigger as-child>
+                        <Button id="player-bank" type="button" variant="outline" class="w-full justify-between font-normal">
+                          <span class="truncate">{{ selectedBankLabel }}</span>
+                          <ChevronsUpDownIcon class="shrink-0 opacity-50" />
+                        </Button>
+                      </ComboboxTrigger>
+                    </ComboboxAnchor>
+                    <ComboboxList>
+                      <ComboboxInput placeholder="Search bank…" />
+                      <ComboboxEmpty>No bank found.</ComboboxEmpty>
+                      <ComboboxGroup>
+                        <ComboboxItem v-for="bank in bankOptions" :key="bank.key" :value="bank">
+                          {{ bank.key === NO_BANK ? 'No bank linked' : `${bank.shortName} — ${bank.name}` }}
+                          <ComboboxItemIndicator>
+                            <CheckIcon />
+                          </ComboboxItemIndicator>
+                        </ComboboxItem>
+                      </ComboboxGroup>
+                    </ComboboxList>
+                  </Combobox>
+                </Field>
+                <template v-if="bankKey !== NO_BANK">
+                  <Field>
+                    <FieldLabel for="player-bank-number">Account number</FieldLabel>
+                    <Input id="player-bank-number" v-model="bankAccountNumber" maxlength="30" placeholder="e.g. 0123456789" />
+                  </Field>
+                  <Field>
+                    <FieldLabel for="player-bank-name">Account holder name (optional)</FieldLabel>
+                    <Input id="player-bank-name" v-model="bankAccountName" maxlength="60" placeholder="e.g. NGUYEN VAN A" />
+                    <FieldDescription>Shown next to the QR so whoever's paying can confirm it's the right person.</FieldDescription>
+                  </Field>
+                </template>
+              </FieldGroup>
+            </AccordionContent>
+          </AccordionItem>
 
-          <div class="flex flex-col gap-2">
-            <div
-              v-for="tagId in selectedTagIds"
-              :key="tagId"
-              class="flex items-center gap-2 rounded-lg border border-border p-2"
-            >
-              <DynamicIcon :name="tagMeta(tagId)?.icon ?? 'Tag'" class="size-4 shrink-0" />
-              <span class="min-w-0 flex-1 truncate text-sm">{{ tagMeta(tagId)?.label ?? tagId }}</span>
-              <div class="flex shrink-0 gap-1">
-                <button
-                  v-for="lvl in 5"
-                  :key="lvl"
-                  type="button"
-                  :aria-label="`Set level ${lvl}`"
-                  :class="cn(
-                    'size-5 rounded-full border border-border transition-transform',
-                    tagBgClass(tagMeta(tagId)?.kind ?? 'neutral', lvl),
-                    tagLevels[tagId] === lvl ? 'ring-2 ring-ring ring-offset-1 ring-offset-background scale-110' : ''
-                  )"
-                  @click="setLevel(tagId, lvl)"
-                />
+          <AccordionItem value="tags">
+            <AccordionTrigger>
+              Tags
+              <span class="text-xs font-normal text-muted-foreground">({{ selectedTagIds.length }})</span>
+            </AccordionTrigger>
+            <AccordionContent class="flex flex-col gap-3">
+              <FieldDescription>Color shows level (1–5) within the tag's category — click a swatch to set it.</FieldDescription>
+
+              <div class="flex flex-col gap-2">
+                <div
+                  v-for="tagId in selectedTagIds"
+                  :key="tagId"
+                  class="flex items-center gap-2 rounded-lg border border-border p-2"
+                >
+                  <DynamicIcon :name="tagMeta(tagId)?.icon ?? 'Tag'" class="size-4 shrink-0" />
+                  <span class="min-w-0 flex-1 truncate text-sm">{{ tagMeta(tagId)?.label ?? tagId }}</span>
+                  <div class="flex shrink-0 gap-1">
+                    <button
+                      v-for="lvl in 5"
+                      :key="lvl"
+                      type="button"
+                      :aria-label="`Set level ${lvl}`"
+                      :class="cn(
+                        'size-5 rounded-full border border-border transition-transform',
+                        tagBgClass(tagMeta(tagId)?.kind ?? 'neutral', lvl),
+                        tagLevels[tagId] === lvl ? 'ring-2 ring-ring ring-offset-1 ring-offset-background scale-110' : ''
+                      )"
+                      @click="setLevel(tagId, lvl)"
+                    />
+                  </div>
+                  <Button type="button" variant="ghost" size="icon-sm" @click="removeTag(tagId)">
+                    <XIcon />
+                  </Button>
+                </div>
               </div>
-              <Button type="button" variant="ghost" size="icon-sm" @click="removeTag(tagId)">
-                <XIcon />
-              </Button>
-            </div>
-          </div>
 
-          <Popover>
-            <PopoverTrigger as-child>
-              <Button type="button" variant="outline" size="sm" class="w-fit">
-                <PlusIcon data-icon="inline-start" />
-                Add existing tag
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent class="w-72 p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Search tags…" />
-                <CommandList>
-                  <CommandEmpty>No tags found.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      v-for="tag in availableTags"
-                      :key="tag.id"
-                      :value="tag.label"
-                      @select="addTag(tag.id)"
-                    >
-                      <DynamicIcon :name="tag.icon" />
-                      {{ tag.label }}
-                    </CommandItem>
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+              <Popover>
+                <PopoverTrigger as-child>
+                  <Button type="button" variant="outline" size="sm" class="w-fit">
+                    <PlusIcon data-icon="inline-start" />
+                    Add existing tag
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent class="w-72 p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search tags…" />
+                    <CommandList>
+                      <CommandEmpty>No tags found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          v-for="tag in availableTags"
+                          :key="tag.id"
+                          :value="tag.label"
+                          @select="addTag(tag.id)"
+                        >
+                          <DynamicIcon :name="tag.icon" />
+                          {{ tag.label }}
+                        </CommandItem>
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
-          <TagCreateInline @created="onTagCreated" />
-        </FieldSet>
+              <TagCreateInline @created="onTagCreated" />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         <div
           v-if="saving"
