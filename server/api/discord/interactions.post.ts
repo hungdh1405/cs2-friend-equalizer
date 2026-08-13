@@ -1,7 +1,7 @@
-import type { EventVoter, Player } from '#shared/types'
+import type { EventVoter, GameEvent, Player } from '#shared/types'
 import { hasEventEnded } from '#shared/utils/event-status'
 import { InteractionResponseType, InteractionType, verifyKey } from 'discord-interactions'
-import { buildEventComponents, buildEventEmbed } from '../../utils/discord-embeds'
+import { buildEventComponents, buildEventEmbed, buildPredictionComponents, buildPredictionEmbed } from '../../utils/discord-embeds'
 
 interface DiscordInteractionUser {
   id: string
@@ -17,6 +17,9 @@ interface DiscordInteractionPayload {
   user?: DiscordInteractionUser
   message?: { id?: string }
 }
+
+const VOTE_CUSTOM_IDS = ['vote:in', 'vote:out']
+const PREDICT_CUSTOM_IDS = ['predict:teamA', 'predict:teamB']
 
 export default defineEventHandler(async (event) => {
   const signature = getHeader(event, 'x-signature-ed25519')
@@ -48,7 +51,7 @@ export default defineEventHandler(async (event) => {
   const customId = interaction.data?.custom_id
   const discordUser = interaction.member?.user ?? interaction.user
 
-  if ((customId !== 'vote:in' && customId !== 'vote:out') || !discordUser?.id) {
+  if (!discordUser?.id || (!VOTE_CUSTOM_IDS.includes(customId ?? '') && !PREDICT_CUSTOM_IDS.includes(customId ?? ''))) {
     throw createError({ statusCode: 400, statusMessage: 'Malformed interaction payload' })
   }
 
@@ -69,6 +72,11 @@ export default defineEventHandler(async (event) => {
       data: { content: current.canceledAt ? 'Sự kiện này đã bị hủy.' : 'Sự kiện này đã kết thúc.', flags: 64 }
     }
   }
+
+  if (PREDICT_CUSTOM_IDS.includes(customId!)) {
+    return handlePrediction(current, customId!, discordUser, interaction.message?.id)
+  }
+
   // Defensive: a click on an *old, replaced* event's message (see events/index.post.ts,
   // which strips that message's buttons on replace) — without this check it would otherwise
   // silently mutate the *current* event's voter list despite the click coming from a
@@ -181,3 +189,69 @@ export default defineEventHandler(async (event) => {
 
   return response
 })
+
+// "Which team will win?" prediction poll, posted alongside the manual team-lineup
+// announcement (see events/teams.patch.ts). Deliberately no per-vote channel message and no
+// changelog entry — explicit request that this stay silent aside from the live embed update,
+// unlike the join/decline vote which does log to /changelog. Anyone in the server can
+// predict, not just the assigned players — this is a fun side bet, not a participation gate.
+async function handlePrediction(
+  current: GameEvent,
+  customId: string,
+  discordUser: DiscordInteractionUser,
+  clickedMessageId: string | undefined
+) {
+  if (!current.manualTeams) {
+    return {
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: 'Chưa có đội hình nào được công bố để dự đoán.', flags: 64 }
+    }
+  }
+
+  const manual = current.manualTeams
+  // Same defensive message-id guard as the join/decline vote — a click already in flight
+  // when the lineup gets re-saved (posting a fresh prediction message) shouldn't mutate the
+  // new poll's data.
+  if (manual.discordMessageId && clickedMessageId && clickedMessageId !== manual.discordMessageId) {
+    return {
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: 'Đội hình này đã được cập nhật. Vui lòng dự đoán ở tin nhắn mới nhất.', flags: 64 }
+    }
+  }
+
+  const predictions = manual.predictions ?? { teamA: [], teamB: [] }
+  const wasA = predictions.teamA.some(p => p.discordUserId === discordUser.id)
+  const wasB = predictions.teamB.some(p => p.discordUserId === discordUser.id)
+  const wantsA = customId === 'predict:teamA'
+
+  const entry: EventVoter = {
+    discordUserId: discordUser.id,
+    username: discordUser.global_name || discordUser.username,
+    avatar: discordUser.avatar ?? null,
+    votedAt: new Date().toISOString()
+  }
+
+  let nextPredictions = predictions
+  if (wantsA && !wasA) {
+    nextPredictions = {
+      teamA: [...predictions.teamA, entry],
+      teamB: predictions.teamB.filter(p => p.discordUserId !== discordUser.id)
+    }
+  } else if (!wantsA && !wasB) {
+    nextPredictions = {
+      teamA: predictions.teamA.filter(p => p.discordUserId !== discordUser.id),
+      teamB: [...predictions.teamB, entry]
+    }
+  }
+
+  const updated = { ...current, manualTeams: { ...manual, predictions: nextPredictions } }
+  await setCurrentEvent(updated)
+
+  return {
+    type: InteractionResponseType.UPDATE_MESSAGE,
+    data: {
+      embeds: [buildPredictionEmbed(updated)],
+      components: buildPredictionComponents()
+    }
+  }
+}

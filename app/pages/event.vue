@@ -7,6 +7,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import TeamLineupBuilder from '@/components/event/TeamLineupBuilder.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -271,6 +272,8 @@ async function performRemoveHost() {
         Sự kiện này đã bị hủy — không cần vote nữa. {{ voteCount > 0 ? `(${voteCount} người đã vote trước khi hủy)` : '' }}
       </p>
     </div>
+
+    <TeamLineupBuilder v-if="currentEvent && !currentEvent.canceledAt && !hasEnded" />
 
     <div v-if="isUnlocked" class="rounded-xl border border-border/60 bg-card/60 p-4">
       <div class="flex items-center gap-2">

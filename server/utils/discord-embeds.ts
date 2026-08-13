@@ -65,3 +65,42 @@ export function buildEventComponents(): DiscordActionRow[] {
     ]
   }]
 }
+
+const PREDICTION_EMBED_COLOR = 0x8B5CF6 // purple — distinct from the orange event embed and the muted "closed" gray
+
+// The "which team will win?" poll posted alongside the manual team-lineup announcement (see
+// events/teams.patch.ts). Shows both rosters (so anyone predicting knows who's on which side)
+// plus the live tally — updated in place via UPDATE_MESSAGE on every predict:teamA/teamB
+// click (server/api/discord/interactions.post.ts), with no separate per-vote message.
+export function buildPredictionEmbed(event: GameEvent): DiscordEmbed {
+  const manual = event.manualTeams
+  const nameById = new Map(event.voters.map(voter => [voter.discordUserId, escapeDiscordMarkdown(voter.username)]))
+  const nameOf = (discordUserId: string) => nameById.get(discordUserId) ?? discordUserId
+
+  const teamALines = manual && manual.teamA.length ? manual.teamA.map(id => `• ${nameOf(id)}`).join('\n') : '_Trống_'
+  const teamBLines = manual && manual.teamB.length ? manual.teamB.map(id => `• ${nameOf(id)}`).join('\n') : '_Trống_'
+  const predictedA = manual?.predictions?.teamA.length ?? 0
+  const predictedB = manual?.predictions?.teamB.length ?? 0
+
+  return {
+    title: '🔮 Đội nào sẽ thắng?',
+    description: [
+      `🅰️ **Đội A**\n${teamALines}`,
+      '',
+      `🅱️ **Đội B**\n${teamBLines}`,
+      '',
+      `📊 **Dự đoán hiện tại:** Đội A: ${predictedA} · Đội B: ${predictedB}`
+    ].join('\n'),
+    color: PREDICTION_EMBED_COLOR
+  }
+}
+
+export function buildPredictionComponents(): DiscordActionRow[] {
+  return [{
+    type: 1,
+    components: [
+      { type: 2, style: 1, label: 'Đội A thắng', custom_id: 'predict:teamA' },
+      { type: 2, style: 2, label: 'Đội B thắng', custom_id: 'predict:teamB' }
+    ]
+  }]
+}

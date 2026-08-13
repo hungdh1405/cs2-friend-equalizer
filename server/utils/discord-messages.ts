@@ -217,3 +217,43 @@ export const EVENT_CREATED = [
   '⚔️ Trống trận đã nổi lên nhờ {hosts} — {startsAt} là giờ ra quân! Vote tại: {link}',
   '🛡️ {hosts} đã chuẩn bị chiến trường cho {startsAt}. Chiến binh tập hợp, vote ngay: {link}'
 ]
+
+// A Host manually arranged Team A / Team B on the website and saved it — distinct from
+// TEAM_READY (the auto-generated split, explicitly framed there as "just a suggestion,"
+// #79). This one is a real, final decision a Host made on purpose, so the tone is the
+// opposite: maximum stakes, honor, and consequence — "make them only want to fight for
+// honor, make them very angry if lost," per explicit request. {teamA}/{teamB} render as
+// space-separated <@id> mentions (see notifyManualTeamsAnnounced), so every assigned player
+// is directly pinged.
+export const MANUAL_TEAMS_ANNOUNCED = [
+  '⚔️ Đội hình đã được chỉ huy chốt — không còn đường lui!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nChiến đấu vì danh dự — thua trận là nỗi nhục không thể xóa nhòa!',
+  '🩸 Trận chiến sinh tử đã được ấn định!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nKẻ thua sẽ phải cúi đầu trước cả binh đoàn. Chiến thắng hoặc chẳng còn gì để nói!',
+  '🔥 Đây là đội hình chính thức, không phải trò đùa!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nDanh dự chiến binh đặt lên bàn cân — thua là nhục nhã ê chề!',
+  '⚔️ Chỉ huy đã ra quyết định cuối cùng!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nMột trong hai đội sẽ phải nếm mùi thất bại cay đắng. Chiến đấu hết mình vì danh dự!',
+  '🩸 Không còn là gợi ý nữa — đây là trận chiến thật sự!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nAi thua sẽ mang nỗi nhục này cả tuần. Đừng để đồng đội thất vọng!',
+  '⚔️ Đội hình đã khóa — không thể thay đổi!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nThắng để tự hào, thua để cay đắng suốt tuần. Chiến đấu hết mình!',
+  '🔥 Trận chiến danh dự bắt đầu!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nKẻ bại trận sẽ bị cả server nhắc tên. Đừng để điều đó xảy ra với đội mình!',
+  '🩸 Máu và mồ hôi sẽ đổ xuống chiến trường!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nChỉ có một đội được vinh danh — còn lại là nỗi nhục ê chề!',
+  '⚔️ Lệnh xuất trận đã ban ra, đội hình chính thức!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nThua trận này, đừng vác mặt về khoe chiến tích!',
+  '🔥 Đây là trận đấu quyết định danh dự!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nMột đội sẽ bước ra trong vinh quang, đội còn lại chìm trong cay đắng!',
+  '🩸 Chiến binh ơi, đã đến lúc chứng minh bản thân!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nThua là nhục, thắng là vinh quang — không có lựa chọn thứ ba!',
+  '⚔️ Đội hình được chỉ huy ấn định — không phải chuyện đùa!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nHãy chiến đấu như thể danh dự cả binh đoàn đặt trên vai bạn!',
+  '🔥 Không còn random, không còn may rủi — đây là quyết định cuối cùng!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nThua trận này sẽ bị nhắc đi nhắc lại đến tuần sau!',
+  '🩸 Hai đội, một trận chiến, chỉ một kẻ chiến thắng!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nĐừng để nỗi nhục thất bại đeo bám bạn cả tuần!',
+  '⚔️ Chỉ huy đã lên tiếng — đội hình chính thức có hiệu lực!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nChiến đấu vì danh dự, vì đồng đội, vì chính bản thân mình!',
+  '🔥 Trận chiến danh dự chính thức khai màn!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nAi thua sẽ phải trả giá bằng sự xấu hổ suốt tuần này!',
+  '🩸 Đội hình đã chốt, chiến trường đã sẵn sàng đổ máu!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nKhông có chỗ cho kẻ yếu đuối — chỉ có danh dự hoặc nhục nhã!',
+  '⚔️ Đây là trận chiến thật, không phải để đùa giỡn!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nThua cuộc đồng nghĩa với một tuần bị cả nhóm trêu chọc!',
+  '🔥 Quyết định đã đưa ra — không thể rút lại!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nHãy chiến đấu như thể đây là trận cuối cùng của đời chiến binh!',
+  '🩸 Danh dự chiến binh đang bị thử thách!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nThua trận, bạn sẽ phải cúi đầu. Thắng trận, bạn sẽ được tôn vinh!',
+  '⚔️ Chốt đội hình — giờ chỉ còn chiến đấu để giành vinh quang!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nKẻ thua cuộc sẽ mãi mãi bị nhắc đến trong sự hổ thẹn!',
+  '🔥 Không còn là gợi ý — trận chiến đã được ấn định!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nHãy chiến đấu với tất cả sự tự tôn, vì thất bại là điều không thể chấp nhận!',
+  '🩸 Cuộc chiến vì danh dự đã được tuyên bố!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nThua trận là một vết nhơ khó gột rửa — hãy chiến đấu hết mình!',
+  '⚔️ Trận chiến chính thức, không có đường lui!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nChỉ có chiến thắng mới xứng đáng với danh dự chiến binh!',
+  '🔥 Chỉ huy đã ra lệnh — đội hình có hiệu lực ngay!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nAi để đồng đội thất vọng sẽ phải sống trong nỗi hổ thẹn!',
+  '🩸 Trận chiến sẽ được nhớ đến — dù là vinh quang hay ô nhục!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nHãy tự quyết định đội mình sẽ được nhắc đến vì điều gì!',
+  '⚔️ Đây là lời tuyên chiến chính thức!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nThua trận, bạn sẽ tự hỏi mình đã làm gì sai suốt cả tuần!',
+  '🔥 Đội hình cuối cùng đã được công bố!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nChiến đấu như thể cả danh dự binh đoàn phụ thuộc vào bạn — vì đúng là vậy!',
+  '🩸 Không còn may rủi, chỉ còn thực lực!\n🛡️ Đội A: {teamA}\n⚔️ Đội B: {teamB}\nThua cuộc là điều không ai muốn nhắc lại. Chiến đấu vì danh dự!',
+  '⚔️ Trận chiến danh dự đã được ấn định bởi chỉ huy!\n🛡️ Đội A: {teamA}\n🔥 Đội B: {teamB}\nHãy chứng minh rằng đội mình xứng đáng được vinh danh, không phải chế giễu!'
+]

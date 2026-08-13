@@ -34,6 +34,13 @@ export function useEvent() {
     return updated
   }
 
+  async function saveManualTeams(teamA: string[], teamB: string[]) {
+    await ensureCrudToken()
+    const updated = await $fetch<GameEvent>('/api/events/teams', { method: 'PATCH', body: { teamA, teamB } })
+    currentEvent.value = updated
+    return updated
+  }
+
   async function cancelEvent() {
     await ensureCrudToken()
     const canceled = await $fetch<GameEvent>('/api/events/current', { method: 'DELETE' })
@@ -51,5 +58,5 @@ export function useEvent() {
     hosts.value = await $fetch<Host[]>(`/api/hosts/${discordUserId}`, { method: 'DELETE' })
   }
 
-  return { currentEvent, hosts, pending, refresh, createEvent, updateEvent, cancelEvent, addHost, removeHost }
+  return { currentEvent, hosts, pending, refresh, createEvent, updateEvent, saveManualTeams, cancelEvent, addHost, removeHost }
 }

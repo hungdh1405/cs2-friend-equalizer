@@ -205,3 +205,10 @@ export const EVENT_CANCELED_LOG = [
   'Event canceled — no session this week after all.',
   'The scheduled session was called off.'
 ]
+
+export const TEAMS_ANNOUNCED_LOG = [
+  'A manual team lineup was saved and announced to Discord.',
+  'Team A/B lineup set by a Host and posted to Discord.',
+  'The match lineup was locked in and announced.',
+  'Teams were manually arranged and the lineup was posted.'
+]

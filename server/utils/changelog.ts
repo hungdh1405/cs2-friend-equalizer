@@ -142,3 +142,8 @@ export async function logEventCanceled(ip: string) {
   const message = render(pick(templates.EVENT_CANCELED_LOG), {})
   await writeEntry({ ip }, 'eventCanceled', undefined, undefined, message)
 }
+
+export async function logTeamsAnnounced(ip: string) {
+  const message = render(pick(templates.TEAMS_ANNOUNCED_LOG), {})
+  await writeEntry({ ip }, 'teamsAnnounced', undefined, undefined, message)
+}

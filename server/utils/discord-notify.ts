@@ -103,6 +103,23 @@ export async function notifyEventCanceled(): Promise<void> {
   await postDiscordMessage(channelId(), { content: message, allowed_mentions: { parse: [] } })
 }
 
+// A Host manually arranged and saved a Team A / Team B lineup on the website (distinct from
+// the auto-generated, "just a suggestion" TEAM_READY split). Every assigned player is
+// directly @mentioned — this is a real, final matchup a Host committed to, not a random draw,
+// so the tone is maximum stakes rather than "take it or leave it."
+export async function notifyManualTeamsAnnounced(teamA: string[], teamB: string[]): Promise<void> {
+  const mention = (discordUserId: string) => `<@${discordUserId}>`
+  const message = render(pick(messages.MANUAL_TEAMS_ANNOUNCED), {
+    teamA: teamA.map(mention).join(' '),
+    teamB: teamB.map(mention).join(' ')
+  })
+  const assigned = [...teamA, ...teamB]
+  await postDiscordMessage(channelId(), {
+    content: message,
+    allowed_mentions: assigned.length ? { users: assigned } : { parse: [] }
+  })
+}
+
 // Posted right after the embed+buttons message, as its own hype announcement — the embed
 // alone (which a busy channel can easily scroll past unnoticed) isn't the same as an actual
 // "hey, go vote" ping. Credits/tags *all* current Hosts collectively — the website's

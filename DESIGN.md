@@ -168,6 +168,14 @@ Reasoning behind each call, so it's clear these were deliberate, not defaults:
 78. **Found via a real `/changelog` entry ("The session time/description was edited — 2026-08-13T15:30:00.000Z") that `logEventCreated`/`logEventUpdated` were interpolating the raw UTC ISO instant straight into the log message, unlike every other datetime shown anywhere else in the app.** The Discord-facing messages (embeds, `EVENT_CREATED`/reminder pools) always ran `startsAt` through `formatVietnamDateTime()` first; these two website-audit-log functions in `changelog.ts` never did, so `/changelog` was the one remaining place a raw machine timestamp leaked into prose. Fixed by formatting only the `message` string's `{startsAt}` substitution — the `to` field (a structured, machine-readable value, same convention as storing a raw number there for score changes) still keeps the untouched ISO instant, since nothing renders `to` directly. Verified by creating then editing a test event and confirming the resulting entries read "16/08/2026 22:30" in `message` while `to` still holds the raw ISO.
     - **Separately, cleaned up the live `/changelog` data itself on explicit request** ("only keep logs from yesterday, please delete all previous logs") — clarified scope first (the live namespace had 70 raw entries across 6 days, not the 50 the paginated `/api/changelog` endpoint showed; confirmed via `wrangler kv key get --remote` that the true count was higher before touching anything), then confirmed whether "yesterday" meant literally excluding today's own just-created test entries or keeping both — the user chose keep-both. Backed up the full 70-entry blob locally before writing the filtered 20-entry set back with `wrangler kv key put --remote`, since this was a direct, irreversible mutation of production data outside any of the app's own reversible UI actions.
 79. **`TEAM_READY` rewritten (still 30 entries) so every message explicitly frames the generated split as a suggestion, never a final decision** — direct instruction that the actual matchup should depend on "their luck and their choices," not something the bot hands down as settled. Every template now says so in some form ("chỉ là gợi ý," "không phải quyết định cuối cùng," "tùy duyên và lựa chọn của mọi người") while keeping the hero/warrior vocabulary from #77 for consistency with the rest of the bot's voice. This reframing was scoped to `TEAM_READY` only — `HOST_REMINDER`/`VOTE_REMINDER_*`/`EVENT_CREATED`/`EVENT_CANCELED`/`NEED_DISCORD_LINK` aren't presenting anything as a decision in the first place, so the "suggestion not final" framing doesn't apply to them.
+80. **Manual team-lineup builder, distinct from the auto-generated `TEAM_READY` suggestion (#79) — a Host drags voters into Team A/Team B on `/event` and saves a real, final matchup**, plus a "which team will win?" prediction poll for anyone in the server, per an explicit multi-part request ("allow add to create team manually, and drag and drop... make more challenge, combat, fighting words... the team lineup must be very nice, and bloody, war, fighting").
+    - **Data model**: `GameEvent.manualTeams?: { teamA: string[], teamB: string[], updatedAt, discordMessageId?, predictions?: { teamA: EventVoter[], teamB: EventVoter[] } }` (`shared/types`) — only ever holds `discordUserId`s currently in `voters`; anyone removed from voting after being placed on a team is silently dropped the next time the lineup is saved, not left dangling. Kept fully separate from `teamsAnnouncedVoterCount`/`matchReadyAnnouncedAt` (the auto-split bookkeeping), since these are two independent features that happen to both produce "two teams."
+    - **`PATCH /api/events/teams`** (new, PIN-gated like every other mutation): validates that submitted IDs are actual current voters, dedupes, and guarantees no one is on both teams (defensive — the client's local drag state could be stale), then posts a fresh prediction-poll message (embed + two buttons) and a separate hype announcement, in that order.
+    - **Drag-and-drop UI** (`app/components/event/TeamLineupBuilder.vue`): plain native HTML5 drag-and-drop (`draggable`, `dragstart`/`dragover.prevent`/`drop`) — no new dependency, matching this app's general "don't add a library for something a few DOM events already do" discipline. Local column state (unassigned/Team A/Team B) is seeded from the saved lineup only on a genuinely new event (`watch(() => currentEvent.value?.id, ...)`), specifically so an in-progress drag arrangement is never reset out from under a Host by an unrelated reactive update. Read-only (no drag handles, no Save button) when not unlocked — matches every other admin affordance on this page.
+    - **Visual theme, "very nice, bloody, war, fighting"**: dark red/black gradient card reusing the same visual vocabulary as `MatchCountdownAlert.vue` (#72) — glowing red border, `hud-frame`-adjacent look, ⚔️/🛡️ iconography — with Team A in red and Team B in amber/orange for an at-a-glance rivalry read. A small one-shot GSAP "slam into place" scale+brightness flourish plays on whichever chip was just dropped (skipped under `prefers-reduced-motion`), deliberately not an ambient/continuous effect given this app's established cost concerns around always-on animation (#59/#60).
+    - **"Which team will win?" prediction poll**: a *second*, independent Discord message (`buildPredictionEmbed`/`buildPredictionComponents`, `discord-embeds.ts`) with `predict:teamA`/`predict:teamB` buttons, handled by a new branch in `interactions.post.ts` (`handlePrediction`) parallel to the existing vote:in/vote:out branch — same toggle idempotency (one click per side, same side again is a no-op), same message-id staleness guard pattern as #75, but **deliberately posts no per-vote channel message and writes no changelog entry** (explicit request: "dont put notification when vote") — only the poll's own embed updates live via `UPDATE_MESSAGE`. Anyone in the server can predict, not just the assigned players — a side bet, not a participation gate. Re-saving the lineup always posts a brand-new poll (old predictions don't carry over to a different matchup); results are also shown read-only on `/event` for everyone, not just Hosts.
+    - **`MANUAL_TEAMS_ANNOUNCED`** (new, 30 entries): explicit request for "combat, fighting words... make them only want to fight for honors, make them very angry if lost" — deliberately the opposite framing from `TEAM_READY`'s "just a suggestion" (#79), since a Host manually saving a lineup *is* a real, deliberate decision. Every assigned player is directly `<@mentioned>` (not just named), and the vocabulary leans on danh dự/nhục nhã (honor/shame) rather than the more measured chiến binh/binh đoàn framing used elsewhere — losing is framed as something to actively dread, winning as the only acceptable outcome.
+    - Verified end-to-end: saving a lineup via the API produces exactly the poll message then the hype message in that order with correct content; the prediction toggle state machine (vote → switch → no-op-on-repeat) confirmed via the same signed-interaction technique as #65/#73/#75, with zero additional Discord messages posted across every prediction click; the drag-and-drop UI screenshotted in both unlocked (editable, seeded from the saved lineup) and locked (read-only) states.
 
 | Key | Value | Notes |
 |---|---|---|
@@ -432,6 +440,7 @@ components/
     ChangeLogEntryRow.vue
   event/
     MatchCountdownAlert.vue      # site-wide "bloody C4" countdown banner, GSAP + synthesized beep sound — see decisions log #72
+    TeamLineupBuilder.vue        # manual drag-and-drop Team A/B builder + read-only prediction-poll results, see decisions log #80
 composables/
   usePlayers.ts                  # roster CRUD via API
   useTags.ts                     # tag catalog CRUD via API
@@ -440,7 +449,7 @@ composables/
   useTeamBalancer.ts             # wraps shared/utils/balance.ts (2-team + N-team) against players + useTeamBuilder state
   useGSAP.ts                     # registers/lazy-loads GSAP plugins (Flip), per gsap-frameworks skill
   useCrudGate.ts                 # CRUD-token state, requireCrudToken()/ensureCrudToken(), CrudCancelledError
-  useEvent.ts                    # current event + Hosts CRUD via API, see decisions log #65/#70
+  useEvent.ts                    # current event + Hosts CRUD via API + saveManualTeams(), see decisions log #65/#70/#80
   useCountdown.ts                # ticks shared/utils/countdown.ts every second against a reactive target ISO
 server/
   api/
@@ -462,10 +471,11 @@ server/
     events/index.post.ts         # create (always replaces any current event) -> posts embed+buttons, retires old message, notifies Hosts
     events/current.patch.ts      # edit date/description in place, preserving votes -> edits the live Discord message
     events/current.delete.ts     # cancel (kept, not deleted, for the weekly Host-reminder check) -> strips Discord buttons
+    events/teams.patch.ts        # save a manual Team A/B lineup -> posts prediction poll + hype announcement, see decisions log #80
     hosts/index.get.ts
     hosts/index.post.ts
     hosts/[id].delete.ts         # rejects the permanently-protected Host (shared/utils/hosts.ts), see decisions log #71
-    discord/interactions.post.ts # the one Discord Interactions endpoint — signature-verified, not PIN-gated; see decisions log #65/#75
+    discord/interactions.post.ts # the one Discord Interactions endpoint — signature-verified, not PIN-gated; vote:in/out, predict:teamA/teamB — see decisions log #65/#75/#80
   middleware/auth.ts              # only checks non-GET /api/* requests for a live CRUD token; reads pass straight through — except /api/discord/interactions, secured by its own signature check instead
   tasks/discord/hostReminder.ts  # daily 10:00 (Asia/Ho_Chi_Minh) — nudges Hosts if no event exists yet this week; also prunes 30-day-old vote log entries
   tasks/discord/voteReminder.ts  # 3x/day — tone-banded reminder tagging only unvoted *linked* players; also handles 2h auto-close and evening team-split (re)announce
@@ -475,12 +485,12 @@ server/
   utils/changelog-messages.ts    # the 132 templates from §A, plus vote/event-lifecycle templates added in #65-75
   utils/seed-data.ts             # migrated roster + tag catalog, see decisions log #17
   utils/discord-api.ts           # postDiscordMessage/editDiscordMessage (dry-run aware), escapeDiscordMarkdown
-  utils/discord-embeds.ts        # buildEventEmbed, buildEventComponents, buildReplacedEventEmbed (#75)
+  utils/discord-embeds.ts        # buildEventEmbed, buildEventComponents, buildReplacedEventEmbed (#75), buildPredictionEmbed/buildPredictionComponents (#80)
   utils/discord-messages.ts      # Vietnamese template pools for the bot's own channel messages, 6-30 entries each — see decisions log #65
-  utils/discord-notify.ts        # business logic calling the above — reminders (hero/warrior tone, #76), host nudge, team ready, need-link, cancel/create; no per-vote messages (removed in #76)
+  utils/discord-notify.ts        # business logic calling the above — reminders (hero/warrior tone, #76), host nudge, team ready, need-link, cancel/create, manual-teams announcement (#80); no per-vote messages (removed in #76), no per-prediction messages either (#80)
   utils/team-generator.ts        # wraps shared/utils/balance.ts's randomBalancedOption() for the match-ready team-split announcement
 shared/
-  types.ts                       # Player, Tag, ChangeLogEntry, GameEvent, EventVoter, Host — see §3
+  types.ts                       # Player, Tag, ChangeLogEntry, GameEvent, EventVoter, Host, ManualTeams (#80) — see §3
   utils/balance.ts                # combinations, rolePenalty, scoreOf, desiredTeamSizes, balancedOptions (2-team)
   utils/balanceNTeams.ts          # snake-draft + local-search swap heuristic (any N > 2)
   utils/balance.test.ts
