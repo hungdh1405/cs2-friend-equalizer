@@ -97,7 +97,7 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
 
 <template>
   <div
-    v-if="hasVoters || hasSavedLineup"
+    v-if="hasSavedLineup || (isUnlocked && hasVoters)"
     lang="vi"
     class="relative overflow-hidden rounded-xl border border-red-700/50 bg-gradient-to-br from-[#1a0000] via-[#210004] to-[#0a0000] p-4"
     style="box-shadow: 0 0 24px -4px rgba(200,10,25,0.35), inset 0 0 30px rgba(80,0,10,0.35)"
@@ -108,7 +108,10 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
         Đội Hình Chiến Đấu
       </h2>
     </div>
-    <p class="mt-1 text-xs text-red-200/70">
+    <!-- "How to use" instructions only make sense for whoever can actually act on them —
+         a public/locked visitor can't drag anything, so showing it to them read a bit like
+         unfinished UI rather than a deliberate design choice. -->
+    <p v-if="isUnlocked" class="mt-1 text-xs text-red-200/70">
       Kéo thả chiến binh vào Đội A / Đội B, sau đó lưu để tuyên chiến trên Discord.
     </p>
 
