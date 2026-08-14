@@ -13,7 +13,7 @@ export function buildEventEmbed(event: GameEvent): DiscordEmbed {
     ? event.voters.map(voter => `• ${escapeDiscordMarkdown(voter.username)}`).join('\n')
     : '_Chưa có ai tham gia._'
 
-  // Auto-closed (2h past startsAt) is distinct from explicitly canceled, but both are
+  // Auto-closed (5h past startsAt) is distinct from explicitly canceled, but both are
   // "nothing left to vote on" — canceled takes precedence in wording if somehow both apply.
   const ended = hasEventEnded(event.startsAt)
   const title = event.canceledAt ? '❌ Sự kiện đã bị hủy' : ended ? '🏁 Sự kiện đã kết thúc' : '📅 Sự kiện tuần này'

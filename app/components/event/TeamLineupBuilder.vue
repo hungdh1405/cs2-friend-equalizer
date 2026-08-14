@@ -12,10 +12,16 @@ import { Button } from '@/components/ui/button'
 import { CrudCancelledError } from '@/composables/useCrudGate'
 import { prefersReducedMotion, useGSAP } from '@/composables/useGSAP'
 import { cn } from '@/lib/utils'
+import { hasEventEnded } from '#shared/utils/event-status'
 import TeamQrPanel from './TeamQrPanel.vue'
 
 const { currentEvent, saveManualTeams, updateLeaders } = useEvent()
 const isUnlocked = useIsCrudUnlocked()
+const hasEnded = computed(() => currentEvent.value ? hasEventEnded(currentEvent.value.startsAt) : false)
+// Once the event's over, the server rejects team/leader writes (see teams.patch.ts) — so the
+// drag-and-drop editor drops into the same read-only view a locked visitor sees, for everyone
+// including the Host, rather than letting them arrange a lineup that can't actually be saved.
+const canEdit = computed(() => isUnlocked.value && !hasEnded.value)
 
 function avatarUrl(voter: { discordUserId: string, avatar: string | null }) {
   return voter.avatar ? `https://cdn.discordapp.com/avatars/${voter.discordUserId}/${voter.avatar}.png` : undefined
@@ -151,7 +157,7 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
 
 <template>
   <div
-    v-if="hasSavedLineup || (isUnlocked && hasVoters)"
+    v-if="hasSavedLineup || (canEdit && hasVoters)"
     lang="vi"
     class="relative overflow-hidden rounded-xl border border-red-700/50 bg-gradient-to-br from-[#1a0000] via-[#210004] to-[#0a0000] p-4"
     style="box-shadow: 0 0 24px -4px rgba(200,10,25,0.35), inset 0 0 30px rgba(80,0,10,0.35)"
@@ -165,14 +171,14 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
     <!-- "How to use" instructions only make sense for whoever can actually act on them —
          a public/locked visitor can't drag anything, so showing it to them read a bit like
          unfinished UI rather than a deliberate design choice. -->
-    <p v-if="isUnlocked" class="mt-1 text-xs text-red-200/70">
+    <p v-if="canEdit" class="mt-1 text-xs text-red-200/70">
       Kéo thả chiến binh vào Đội A / Đội B, sau đó lưu để tuyên chiến trên Discord.
     </p>
-    <p v-if="isUnlocked && (teamA.length || teamB.length)" class="mt-1 flex items-center gap-1 text-[11px] text-yellow-400/70">
+    <p v-if="canEdit && (teamA.length || teamB.length)" class="mt-1 flex items-center gap-1 text-[11px] text-yellow-400/70">
       <CrownIcon class="size-3" /> Bấm vào biểu tượng vương miện để chọn thủ lĩnh mỗi đội (người giữ tiền và đưa QR).
     </p>
 
-    <div v-if="isUnlocked" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div v-if="canEdit" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div
         class="min-h-24 rounded-lg border border-dashed border-red-800/50 bg-black/30 p-2"
         @dragover.prevent
@@ -312,7 +318,7 @@ const predictions = computed(() => currentEvent.value?.manualTeams?.predictions)
 
     <TeamQrPanel v-if="hasSavedLineup" :team-a="teamA" :team-b="teamB" :leader-a="leaderA" :leader-b="leaderB" class="mt-4" />
 
-    <Button v-if="isUnlocked" class="mt-3 bg-red-700 text-white hover:bg-red-600" :disabled="saving" @click="confirmSaveOpen = true">
+    <Button v-if="canEdit" class="mt-3 bg-red-700 text-white hover:bg-red-600" :disabled="saving" @click="confirmSaveOpen = true">
       <SwordsIcon data-icon="inline-start" />
       Lưu Đội Hình &amp; Tuyên Chiến
     </Button>

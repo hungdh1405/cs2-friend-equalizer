@@ -126,7 +126,7 @@ export interface GameEvent {
    * counts the same as creating for that purpose. Vote reminders and new votes both stop,
    * though: there's nothing left to vote on once this is set. */
   canceledAt?: string
-  /** Set once the scheduled voteReminder task notices the event auto-closed (2h past
+  /** Set once the scheduled voteReminder task notices the event auto-closed (5h past
    * `startsAt` — see shared/utils/event-status.ts) and has removed the Discord vote buttons.
    * Purely an optimization to avoid re-editing that message every cron run; "is this event
    * actually over" is always computed live from `startsAt`, never read from this field. */

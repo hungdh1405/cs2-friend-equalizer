@@ -18,7 +18,7 @@ export default defineTask({
       return { result: 'skipped: no active event scheduled this week' }
     }
 
-    // 2h past the scheduled start — nothing left to remind anyone about. Also the one place
+    // 5h past the scheduled start — nothing left to remind anyone about. Also the one place
     // that follows up on an auto-close by editing the Discord message to drop the vote
     // buttons (once — `closedAt` avoids re-editing the same message every cron run).
     if (hasEventEnded(current.startsAt)) {

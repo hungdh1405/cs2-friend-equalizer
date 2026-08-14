@@ -234,7 +234,7 @@ async function performRemoveHost() {
         </div>
       </div>
 
-      <template v-if="!currentEvent.canceledAt && !hasEnded">
+      <template v-if="!currentEvent.canceledAt">
         <div class="mt-4 flex items-center gap-2 text-sm">
           <UsersIcon class="size-4 text-muted-foreground" />
           <span class="font-heading font-semibold">{{ voteCount }} / {{ TARGET_VOTES }}</span>
@@ -273,7 +273,7 @@ async function performRemoveHost() {
       </p>
     </div>
 
-    <TeamLineupBuilder v-if="currentEvent && !currentEvent.canceledAt && !hasEnded" />
+    <TeamLineupBuilder v-if="currentEvent && !currentEvent.canceledAt" />
 
     <div v-if="isUnlocked" class="rounded-xl border border-border/60 bg-card/60 p-4">
       <div class="flex items-center gap-2">
