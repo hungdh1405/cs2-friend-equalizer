@@ -14,8 +14,7 @@ export default defineTask({
       await notifyHostReminder(hosts)
     }
 
-    // Piggybacks on this daily task rather than spending one of the account's 5 free-plan
-    // cron slots on a separate retention job.
+    // Piggybacks on this daily task rather than adding a separate retention schedule.
     await pruneVoteChangeLog(THIRTY_DAYS_MS)
 
     return { result: hasEventThisWeek ? 'skipped: event already scheduled this week' : 'reminded' }

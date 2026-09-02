@@ -1,10 +1,9 @@
 import type { GameEvent, Player } from '#shared/types'
 import { hasEventEnded } from '#shared/utils/event-status'
 
-// Fired by 3 separate cron entries (12:00 / 16:00 / 20:00 Asia/Ho_Chi_Minh — see
-// nuxt.config.ts + wrangler.toml). Nitro doesn't pass "which cron string triggered this" into
-// the task, so the 20:00-only team-regeneration check below is done by reading the current
-// UTC hour directly (20:00 local = 13:00 UTC) rather than needing 3 differently-named tasks.
+// Dispatched by the single consolidated cron trigger at 12:00 / 16:00 / 20:00
+// Asia/Ho_Chi_Minh (see nuxt.config.ts + wrangler.toml). The 20:00-only team-regeneration
+// check below reads the current UTC hour directly (20:00 local = 13:00 UTC).
 const EVENING_SLOT_UTC_HOUR = 13
 
 export default defineTask({

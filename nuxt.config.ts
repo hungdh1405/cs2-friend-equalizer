@@ -55,10 +55,9 @@ export default defineNuxtConfig({
       tasks: true
     },
     scheduledTasks: {
-      '0 3 * * *': ['discord:hostReminder'],
-      '0 5 * * *': ['discord:voteReminder'],
-      '0 9 * * *': ['discord:voteReminder'],
-      '0 13 * * *': ['discord:voteReminder']
+      // One Cloudflare Cron Trigger covers every reminder slot. The dispatcher preserves
+      // the different host/vote behavior for each UTC hour.
+      '0 3,5,9,13 * * *': ['discord:scheduledReminders']
     }
   },
   runtimeConfig: {
