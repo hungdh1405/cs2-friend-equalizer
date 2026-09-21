@@ -374,17 +374,6 @@
      opacity GSAP set each frame against the *computed* opacity the browser actually painted —
      they diverged by up to 0.3 for hundreds of ms whenever this transition was present. */
 
-  /* Landing flash — a quick glow burst on a player row right after its ghost-clone flight
-     animation deposits it into a team slot (see teams.vue's flyPlayerRow). Color comes from
-     the same --hud-accent custom property the .hud-frame brackets use, set per-instance. */
-  .just-landed {
-    animation: land-flash 0.5s ease-out;
-  }
-  @keyframes land-flash {
-    0% { box-shadow: 0 0 0 2px var(--hud-accent, var(--primary)), 0 0 30px -2px var(--hud-accent, var(--primary)); }
-    100% { box-shadow: 0 0 0 0 transparent; }
-  }
-
   /* Rotating energy-ring aura behind a circular avatar — a conic gradient in the tier/accent
      color, blurred and spun slowly, reads as a "charging" neon/lightning aura rather than a
      static ring. Sits behind the avatar via z-index/negative inset, so the avatar image itself

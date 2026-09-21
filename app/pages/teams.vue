@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import type { DraftTeam } from '@/lib/case-draft'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { ROLES } from '#shared/types'
 import { ClipboardIcon, Loader2Icon, ShuffleIcon, Wand2Icon } from '@lucide/vue'
 import { toast } from 'vue-sonner'
@@ -8,11 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { prefersReducedMotion, useGSAP } from '@/composables/useGSAP'
 import { useSfx } from '@/composables/useSfx'
-import { pickAssignMessage } from '@/lib/team-assign-messages'
+import { buildDraftTeams } from '@/lib/case-draft'
 import { getTier } from '@/lib/tier'
 import { cn } from '@/lib/utils'
+import CaseDraftDialog from '@/components/teams/CaseDraftDialog.vue'
 import MetricsBar from '@/components/teams/MetricsBar.vue'
-import TeamAssemblyBanner from '@/components/teams/TeamAssemblyBanner.vue'
 import TeamCountControl from '@/components/teams/TeamCountControl.vue'
 import TeamPanel from '@/components/teams/TeamPanel.vue'
 import ToleranceControl from '@/components/teams/ToleranceControl.vue'
@@ -27,9 +28,13 @@ const TEAM_ACCENTS = ['var(--team-a)', 'var(--team-b)', 'var(--team-c)', 'var(--
 
 const sortedPlayers = computed(() => [...players.value].sort((a, b) => b.score - a.score))
 const selectionGridEl = ref<HTMLElement | null>(null)
-
-const assemblyPhase = ref<'idle' | 'matchmaking' | 'announcing'>('idle')
-const assemblyMessage = ref('')
+const activeAction = shallowRef<'optimize' | 'random' | null>(null)
+const draftOpen = shallowRef(false)
+const draftRunId = shallowRef(0)
+const draftTeams = shallowRef<DraftTeam[]>([])
+const pendingDraftAssignments = shallowRef<Record<string, number> | null>(null)
+let selectionContext: gsap.Context | null = null
+const moveTweens = new Set<gsap.core.Tween>()
 
 function isSelected(id: string) {
   return builder.state.value.selectedIds.includes(id)
@@ -47,162 +52,127 @@ function toggleSelect(id: string) {
 onMounted(() => {
   if (prefersReducedMotion() || !selectionGridEl.value) return
   const { gsap } = useGSAP()
-  gsap.context(() => {
+  selectionContext = gsap.context(() => {
     gsap.from('.select-row', { autoAlpha: 0, y: 10, stagger: 0.02, duration: 0.35, ease: 'power2.out' })
   }, selectionGridEl.value)
 })
 
-/**
- * "Ghost clone" flight — a dynamic esports-style transition for moving a single player
- * between the waiting list and a team slot. Sequence: clone the source row at its exact
- * viewport position -> fly it to the destination with a fading trail -> only then mutate
- * the real data (avoiding any layout jump while the clone is still in flight) -> flash the
- * newly-landed real row with a scale-in glow. Used for every player move — both a single
- * manual assign/unassign and, in sequence, each player of a bulk optimize/random-balance.
- */
-async function flyPlayerRow(id: string, destinationSelector: string, mutate: () => void) {
-  const sourceEl = document.getElementById(`player-row-${id}`)
-  const destContainer = document.querySelector<HTMLElement>(destinationSelector)
+onBeforeUnmount(() => {
+  selectionContext?.revert()
+  moveTweens.forEach(tween => tween.kill())
+  moveTweens.clear()
+})
 
-  if (prefersReducedMotion() || !sourceEl || !destContainer) {
-    mutate()
-    return
-  }
-
-  const player = balancer.selectedPlayers.value.find(p => p.id === id)
-  const tierColor = player ? getTier(player.score).colorVar : 'var(--primary)'
-  const sourceRect = sourceEl.getBoundingClientRect()
-  const destRect = destContainer.getBoundingClientRect()
-  const lastRow = destContainer.lastElementChild as HTMLElement | null
-  const destX = destRect.left
-  const destY = lastRow ? lastRow.getBoundingClientRect().bottom + 6 : destRect.top + 4
-
-  const ghost = sourceEl.cloneNode(true) as HTMLElement
-  ghost.removeAttribute('id')
-  Object.assign(ghost.style, {
-    position: 'fixed',
-    left: `${sourceRect.left}px`,
-    top: `${sourceRect.top}px`,
-    width: `${sourceRect.width}px`,
-    margin: '0',
-    zIndex: '100',
-    pointerEvents: 'none',
-    boxShadow: `0 0 22px ${tierColor}, 0 0 6px ${tierColor}`
-  })
-  document.body.appendChild(ghost)
+async function animatePlayerLanding(id: string) {
+  if (prefersReducedMotion()) return
+  await nextTick()
+  const playerRow = document.getElementById(`player-row-${id}`)
+  if (!playerRow) return
 
   const { gsap } = useGSAP()
-
-  // Faint glow trail: every ~45ms, drop a fading echo of the ghost's current position.
-  // Echoes are tracked (not just left to self-remove via onComplete) so a slow/backgrounded
-  // tab can't leave stray fixed-position nodes behind after the flight resolves.
-  const echoes = new Set<HTMLElement>()
-  const trailTimer = window.setInterval(() => {
-    const rect = ghost.getBoundingClientRect()
-    const echo = ghost.cloneNode(true) as HTMLElement
-    Object.assign(echo.style, {
-      left: `${rect.left}px`,
-      top: `${rect.top}px`,
-      zIndex: '99',
-      boxShadow: `0 0 10px ${tierColor}`
-    })
-    document.body.appendChild(echo)
-    echoes.add(echo)
-    gsap.to(echo, {
-      autoAlpha: 0,
-      scale: 0.85,
-      duration: 0.32,
-      ease: 'power1.out',
-      onComplete: () => { echo.remove(); echoes.delete(echo) }
-    })
-  }, 45)
-
-  await new Promise<void>((resolve) => {
-    gsap.to(ghost, { left: destX, top: destY, scale: 0.94, duration: 0.55, ease: 'power2.out', onComplete: resolve })
+  const tween = gsap.fromTo(playerRow, {
+    scale: 1.06,
+    filter: 'brightness(1.35)'
+  }, {
+    scale: 1,
+    filter: 'brightness(1)',
+    duration: 0.32,
+    ease: 'power2.out',
+    clearProps: 'transform,filter',
+    onComplete: () => moveTweens.delete(tween)
   })
-
-  window.clearInterval(trailTimer)
-  ghost.remove()
-  echoes.forEach(echo => echo.remove())
-  echoes.clear()
-
-  // Only now does the real data move — the flight already "sold" the transition, so this
-  // is invisible/instant rather than a layout jump.
-  mutate()
-  await nextTick()
-
-  const landedEl = document.getElementById(`player-row-${id}`)
-  if (landedEl) {
-    landedEl.style.setProperty('--hud-accent', tierColor)
-    landedEl.classList.add('just-landed')
-    gsap.fromTo(landedEl, { scale: 1.16 }, { scale: 1, duration: 0.4, ease: 'back.out(2.2)' })
-    setTimeout(() => landedEl.classList.remove('just-landed'), 550)
-  }
+  moveTweens.add(tween)
 }
 
 function assign(id: string, teamIndex: number) {
   sfx.playAssign()
-  flyPlayerRow(id, `[data-team-slot="${teamIndex}"]`, () => builder.assign(id, teamIndex))
+  builder.assign(id, teamIndex)
+  void animatePlayerLanding(id)
 }
 
 function unassign(id: string) {
   sfx.playUnassign()
-  flyPlayerRow(id, '[data-team-slot="waiting"]', () => builder.unassign(id))
+  builder.unassign(id)
+  void animatePlayerLanding(id)
 }
 
-/**
- * Bulk optimize/random-balance: clear every NOT-locked player back to waiting first (so the
- * whole roster visibly restarts from the waiting list — explicit feedback that leftover
- * assignments from a previous run meant most players never appeared to move), compute the
- * target split in the worker (matchmaking banner shows here), then fly each mover one at a
- * time in its waiting-list order, updating the banner to that exact player's name right as
- * their flight starts — never a separate, out-of-sync ticker.
- */
-async function generateTeams(compute: () => Promise<Record<string, number> | null>, successMessage: string) {
+function validateGeneration(): boolean {
   if (balancer.validationError.value) {
     toast.error(balancer.validationError.value)
+    return false
+  }
+  return true
+}
+
+async function optimize() {
+  sfx.arm()
+  if (!validateGeneration()) return
+  activeAction.value = 'optimize'
+  let target: Record<string, number> | null = null
+  try {
+    target = await balancer.computeOptimize()
+  } catch {
+    toast.error('Team optimization failed. Please try again.')
     return
+  } finally {
+    activeAction.value = null
   }
 
-  builder.clearUnlockedAssignments()
-  await nextTick()
-
-  assemblyPhase.value = 'matchmaking'
-  assemblyMessage.value = ''
-  const target = await compute()
-
   if (!target) {
-    assemblyPhase.value = 'idle'
     toast.error(balancer.validationError.value ?? 'Could not find a valid split — check locked players.')
     return
   }
 
-  // Locked players' target assignment already matches their (untouched) current one, so
-  // only players actually waiting for a new slot need a flight.
-  const moverIds = balancer.waitingPlayers.value.map(p => p.id).filter(id => target[id] !== undefined)
+  builder.setAssignments(target)
+  sfx.playSuccess()
+  toast.success('Teams optimized.')
+}
 
-  assemblyPhase.value = 'announcing'
-  for (const id of moverIds) {
-    const player = balancer.selectedPlayers.value.find(p => p.id === id)
-    const teamIndex = target[id]
-    if (!player || teamIndex === undefined) continue
-
-    assemblyMessage.value = pickAssignMessage(player.name, builder.state.value.teamNames[teamIndex])
-    sfx.playAssign()
-    await flyPlayerRow(id, `[data-team-slot="${teamIndex}"]`, () => builder.setAssignment(id, teamIndex))
+async function randomBalance() {
+  sfx.arm()
+  if (!validateGeneration()) return
+  activeAction.value = 'random'
+  let target: Record<string, number> | null = null
+  try {
+    target = await balancer.computeRandomBalance()
+  } catch {
+    toast.error('Random balance failed. Please try again.')
+    return
+  } finally {
+    activeAction.value = null
   }
 
-  assemblyPhase.value = 'idle'
-  sfx.playSuccess()
-  toast.success(successMessage)
+  if (!target) {
+    toast.error(balancer.validationError.value ?? 'Could not find a valid split — check locked players.')
+    return
+  }
+
+  const candidates = balancer.selectedPlayers.value.filter(player => target[player.id] !== undefined)
+  if (!candidates.length) {
+    toast.error('No active player is available for selection.')
+    return
+  }
+
+  pendingDraftAssignments.value = target
+  draftTeams.value = buildDraftTeams(
+    candidates,
+    target,
+    builder.state.value.teamNames,
+    builder.state.value.teamCount
+  )
+  draftRunId.value += 1
+  draftOpen.value = true
 }
 
-function optimize() {
-  return generateTeams(() => balancer.computeOptimize(), 'Teams optimized.')
+function finishDraft() {
+  if (!pendingDraftAssignments.value) return
+  builder.setAssignments(pendingDraftAssignments.value)
+  pendingDraftAssignments.value = null
+  toast.success('Random balance applied.')
 }
 
-function randomBalance() {
-  return generateTeams(() => balancer.computeRandomBalance(), 'Random balance applied.')
+function cancelDraft() {
+  pendingDraftAssignments.value = null
 }
 
 async function copyResult() {
@@ -293,14 +263,15 @@ async function copyResult() {
         </div>
       </CardHeader>
       <CardContent class="flex flex-col gap-4">
+        <p class="text-xs text-muted-foreground">Drag players between teams. Locked players stay fixed during balance.</p>
         <div class="flex flex-wrap gap-2">
-          <Button size="sm" :disabled="balancer.isComputing.value" @click="optimize">
-            <Loader2Icon v-if="balancer.isComputing.value" data-icon="inline-start" class="animate-spin" />
+          <Button size="sm" :disabled="balancer.isComputing.value || draftOpen" @click="optimize">
+            <Loader2Icon v-if="activeAction === 'optimize'" data-icon="inline-start" class="animate-spin" />
             <Wand2Icon v-else data-icon="inline-start" />
             Optimize
           </Button>
-          <Button variant="outline" size="sm" :disabled="balancer.isComputing.value" @click="randomBalance">
-            <Loader2Icon v-if="balancer.isComputing.value" data-icon="inline-start" class="animate-spin" />
+          <Button variant="outline" size="sm" :disabled="balancer.isComputing.value || draftOpen" @click="randomBalance">
+            <Loader2Icon v-if="activeAction === 'random'" data-icon="inline-start" class="animate-spin" />
             <ShuffleIcon v-else data-icon="inline-start" />
             Random balance
           </Button>
@@ -312,8 +283,6 @@ async function copyResult() {
             Copy
           </Button>
         </div>
-
-        <TeamAssemblyBanner :phase="assemblyPhase" :message="assemblyMessage" />
 
         <MetricsBar
           :selected-count="balancer.selectedPlayers.value.length"
@@ -333,6 +302,7 @@ async function copyResult() {
               :accent="TEAM_ACCENTS[index % TEAM_ACCENTS.length]"
               :slot-index="index"
               @update:name="(name) => builder.setTeamName(index, name)"
+              @assign="assign"
               @toggle-lock="builder.toggleLock"
               @unassign="unassign"
             />
@@ -344,10 +314,21 @@ async function copyResult() {
               :players="balancer.waitingPlayers.value"
               :team-names="builder.state.value.teamNames"
               @assign="assign"
+              @unassign="unassign"
             />
           </div>
         </div>
       </CardContent>
     </Card>
+
+    <CaseDraftDialog
+      v-model:open="draftOpen"
+      :players="balancer.selectedPlayers.value"
+      :teams="draftTeams"
+      :locked-ids="builder.state.value.lockedIds"
+      :run-id="draftRunId"
+      @complete="finishDraft"
+      @cancel="cancelDraft"
+    />
   </div>
 </template>

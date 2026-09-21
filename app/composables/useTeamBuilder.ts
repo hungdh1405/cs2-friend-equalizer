@@ -26,6 +26,17 @@ function defaultState(): TeamBuilderState {
   }
 }
 
+export function retainSelectedTeamState(state: TeamBuilderState, ids: string[]) {
+  const selectedIds = [...new Set(ids)]
+  const selected = new Set(selectedIds)
+  const assignments = Object.fromEntries(
+    Object.entries(state.assignments).filter(([id]) => selected.has(id))
+  )
+  const lockedIds = state.lockedIds.filter(id => selected.has(id) && assignments[id] !== undefined)
+
+  return { selectedIds, assignments, lockedIds }
+}
+
 /**
  * Client-only team-building state (selection, assignment, locks, tolerance, team count/names).
  * Persisted to localStorage — never sent to the server. See DESIGN.md decisions log #1-2.
@@ -43,9 +54,10 @@ export function useTeamBuilder() {
   }
 
   function selectIds(ids: string[]) {
-    state.value.selectedIds = ids
-    state.value.assignments = {}
-    state.value.lockedIds = []
+    const retained = retainSelectedTeamState(state.value, ids)
+    state.value.selectedIds = retained.selectedIds
+    state.value.assignments = retained.assignments
+    state.value.lockedIds = retained.lockedIds
   }
 
   function clearSelection() {
@@ -82,27 +94,6 @@ export function useTeamBuilder() {
   function setAssignments(assignments: Record<string, number>) {
     // Optimize/random-balance results replace assignments wholesale, but preserve which
     // ids were already locked — those are the only ones the algorithms were required to keep put.
-    state.value.assignments = assignments
-  }
-
-  /** Sets one player's assignment without touching lockedIds — unlike assign() (a manual,
-   * deliberate move that also locks the player in place), this is for progressively applying
-   * a computed optimize/random-balance result one player at a time as each one's fly-in
-   * animation lands, where auto-locking every player would defeat the point of "locked"
-   * meaning "the user pinned this one." */
-  function setAssignment(id: string, teamIndex: number) {
-    state.value.assignments = { ...state.value.assignments, [id]: teamIndex }
-  }
-
-  /** Unassigns every NOT-locked player (back to waiting) while leaving locked players' team
-   * and lock status untouched. Used before a fresh optimize/random-balance run so every player
-   * who's actually being reshuffled visibly starts from "waiting" and flies into their new
-   * slot — locked players were never moving anyway, so they correctly stay put throughout. */
-  function clearUnlockedAssignments() {
-    const assignments: Record<string, number> = {}
-    for (const [id, index] of Object.entries(state.value.assignments)) {
-      if (state.value.lockedIds.includes(id)) assignments[id] = index
-    }
     state.value.assignments = assignments
   }
 
@@ -150,8 +141,6 @@ export function useTeamBuilder() {
     toggleLock,
     clearTeams,
     setAssignments,
-    setAssignment,
-    clearUnlockedAssignments,
     setTeamCount,
     setTeamName,
     setTolerance

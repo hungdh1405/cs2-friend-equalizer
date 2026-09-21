@@ -32,7 +32,7 @@ export interface Tier {
 const TIERS: Tier[] = [
   {
     key: 'S',
-    label: 'Elite',
+    label: 'Tier S',
     min: 90,
     badgeClass: 'bg-elite text-elite-foreground',
     cardBorderClass: 'border-l-[6px] border-l-elite',
@@ -42,7 +42,7 @@ const TIERS: Tier[] = [
   },
   {
     key: 'A',
-    label: 'Very Strong',
+    label: 'Tier A',
     min: 75,
     badgeClass: 'bg-tier-a text-tag-fg-on-deep',
     cardBorderClass: 'border-l-[6px] border-l-tier-a',
@@ -52,7 +52,7 @@ const TIERS: Tier[] = [
   },
   {
     key: 'B',
-    label: 'Average',
+    label: 'Tier B',
     min: 55,
     badgeClass: 'bg-tier-b text-tag-fg-on-pale',
     cardBorderClass: 'border-l-[6px] border-l-tier-b',
@@ -62,7 +62,7 @@ const TIERS: Tier[] = [
   },
   {
     key: 'C',
-    label: 'Below Average',
+    label: 'Tier C',
     min: 40,
     badgeClass: 'bg-tier-c text-tag-fg-on-deep',
     cardBorderClass: 'border-l-[6px] border-l-tier-c',
@@ -72,7 +72,7 @@ const TIERS: Tier[] = [
   },
   {
     key: 'D',
-    label: 'Beginner',
+    label: 'Tier D',
     min: 0,
     badgeClass: 'bg-tier-d text-tag-fg-on-deep',
     cardBorderClass: 'border-l-[6px] border-l-tier-d',
