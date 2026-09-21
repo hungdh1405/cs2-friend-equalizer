@@ -34,6 +34,8 @@ export interface DraftSequence {
 
 type RandomSource = () => number
 
+const TRAILING_DECOY_SLOTS = 8
+
 function browserRandom(): number {
   if (globalThis.crypto?.getRandomValues) {
     const value = new Uint32Array(1)
@@ -147,6 +149,18 @@ export function createCaseReelPlan(
 
   const winnerIndex = reelPlayers.length
   reelPlayers.push(winner)
+
+  // Keep a full visual tail after the stopping point. Without these cards the winner sits at
+  // the physical end of the track, exposing the result before the reel reaches the marker.
+  const trailingCandidates = uniquePlayers.length > 2
+    ? uniquePlayers.filter(player => player.id !== winner.id)
+    : uniquePlayers.length > 1 ? uniquePlayers : []
+  while (trailingCandidates.length && reelPlayers.length - winnerIndex - 1 < TRAILING_DECOY_SLOTS) {
+    let nextPass = shufflePlayers(trailingCandidates, random)
+    nextPass = avoidBoundaryDuplicate(nextPass, reelPlayers.at(-1)?.id)
+    const remainingSlots = TRAILING_DECOY_SLOTS - (reelPlayers.length - winnerIndex - 1)
+    reelPlayers.push(...nextPass.slice(0, remainingSlots))
+  }
 
   const slots = reelPlayers.map((player, index) => ({
     key: `case-slot-${index}-${player.id}`,

@@ -48,8 +48,9 @@ describe('case draft reel', () => {
     const plan = createCaseReelPlan(players, winner.id, seeded(count))
 
     expect(plan.slots[plan.winnerIndex]?.player.id).toBe(winner.id)
-    expect(plan.winnerIndex).toBe(plan.slots.length - 1)
     expect(plan.winnerIndex - plan.initialIndex).toBeGreaterThanOrEqual(70)
+    expect(plan.slots.length - plan.winnerIndex - 1).toBeGreaterThanOrEqual(8)
+    expect(plan.slots.slice(plan.winnerIndex + 1).every(slot => slot.player.id !== winner.id)).toBe(true)
     expect(new Set(plan.slots.map(slot => slot.player.id))).toEqual(new Set(players.map(item => item.id)))
   })
 
