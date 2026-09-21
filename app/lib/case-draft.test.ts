@@ -1,6 +1,7 @@
 import type { Player } from '#shared/types'
+import type { DraftTeam } from './case-draft'
 import { describe, expect, it } from 'vitest'
-import { createCaseReelPlan, createDraftSequence, getDraftVerdict, shufflePlayers } from './case-draft'
+import { createCaseReelPlan, createDraftSequence, getDraftVerdict, getUnrevealedPlayers, shufflePlayers } from './case-draft'
 
 function player(index: number, score = 50): Player {
   return {
@@ -20,6 +21,15 @@ function seeded(seed: number) {
   return () => {
     value = (value * 1664525 + 1013904223) >>> 0
     return value / 0x1_0000_0000
+  }
+}
+
+function team(index: number, players: Player[]): DraftTeam {
+  return {
+    index,
+    name: `Team ${String.fromCharCode(65 + index)}`,
+    players,
+    score: players.reduce((total, item) => total + item.score, 0)
   }
 }
 
@@ -43,7 +53,7 @@ describe('case draft reel', () => {
     expect(new Set(plan.slots.map(slot => slot.player.id))).toEqual(new Set(players.map(item => item.id)))
   })
 
-  it('supports the final ceremonial spin when one player remains', () => {
+  it('keeps the reel-plan utility valid for a one-player input', () => {
     const onlyPlayer = player(1)
     const plan = createCaseReelPlan([onlyPlayer], onlyPlayer.id, seeded(9))
 
@@ -72,10 +82,13 @@ describe('case draft reel', () => {
 
   it('keeps locked players visible and drafts every other active player exactly once', () => {
     const players = Array.from({ length: 8 }, (_, index) => player(index))
-    const activeIds = players.slice(0, 6).map(item => item.id)
+    const teams = [
+      team(0, [players[0], players[2], players[4]]),
+      team(1, [players[1], players[3], players[5]])
+    ]
+    const activeIds = teams.flatMap(item => item.players.map(player => player.id))
     const sequence = createDraftSequence(
-      players,
-      activeIds,
+      teams,
       [players[1].id, players[4].id, players[7].id, players[1].id],
       seeded(7)
     )
@@ -85,6 +98,39 @@ describe('case draft reel', () => {
       activeIds.filter(id => id !== players[1].id && id !== players[4].id).sort()
     )
     expect(new Set(sequence.rounds.map(item => item.id)).size).toBe(sequence.rounds.length)
+  })
+
+  it('takes turns between teams while randomizing the player selected for each team', () => {
+    const players = Array.from({ length: 6 }, (_, index) => player(index))
+    const teams = [
+      team(0, [players[0], players[2], players[4]]),
+      team(1, [players[1], players[3], players[5]])
+    ]
+    const playerTeam = new Map(teams.flatMap(item => item.players.map(player => [player.id, item.index])))
+    const sequence = createDraftSequence(teams, [], seeded(11))
+
+    expect(sequence.rounds.map(item => playerTeam.get(item.id))).toEqual([0, 1, 0, 1, 0, 1])
+    expect(sequence.rounds.filter(item => playerTeam.get(item.id) === 0).map(item => item.id))
+      .not.toEqual(teams[0].players.map(item => item.id))
+  })
+
+  it('repeats a team only after every other team has no players left to select', () => {
+    const players = Array.from({ length: 6 }, (_, index) => player(index))
+    const teams = [
+      team(0, [players[0], players[2], players[4], players[5]]),
+      team(1, [players[1], players[3]])
+    ]
+    const playerTeam = new Map(teams.flatMap(item => item.players.map(player => [player.id, item.index])))
+    const sequence = createDraftSequence(teams, [], seeded(5))
+
+    expect(sequence.rounds.map(item => playerTeam.get(item.id))).toEqual([0, 1, 0, 1, 0, 0])
+  })
+
+  it('removes fixed and previously selected players from every later reel pool', () => {
+    const players = Array.from({ length: 6 }, (_, index) => player(index))
+
+    expect(getUnrevealedPlayers(players, [players[0].id, players[2].id, players[5].id]).map(item => item.id))
+      .toEqual([players[1].id, players[3].id, players[4].id])
   })
 })
 

@@ -15,7 +15,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { useSfx } from '@/composables/useSfx'
-import { createDraftSequence, getDraftVerdict } from '@/lib/case-draft'
+import { createDraftSequence, getDraftVerdict, getUnrevealedPlayers } from '@/lib/case-draft'
 import { getTier } from '@/lib/tier'
 import CaseTeamBoard from './CaseTeamBoard.vue'
 import PlayerCaseReel from './PlayerCaseReel.vue'
@@ -39,6 +39,7 @@ const TEAM_ACCENTS = ['var(--team-a)', 'var(--team-b)', 'var(--team-c)', 'var(--
 const selectionStatus = shallowRef('Preparing player selection')
 const soundEnabled = shallowRef(true)
 const draftOrder = shallowRef<Player[]>([])
+const reelPlayers = shallowRef<Player[]>([])
 const revealedPlayerIds = shallowRef<string[]>([])
 const fixedPlayerIds = shallowRef<string[]>([])
 const currentRound = shallowRef(0)
@@ -47,9 +48,11 @@ const roundRevealed = shallowRef(false)
 const roundSettled = shallowRef(false)
 const draftStarted = shallowRef(false)
 const completed = shallowRef(false)
+const currentRoundAutoConfirmed = shallowRef(false)
 const verdict = shallowRef<DraftVerdict | null>(null)
 let lastTickAt = 0
 let celebrationTimer: ReturnType<typeof setTimeout> | null = null
+let autoConfirmTimer: ReturnType<typeof setTimeout> | null = null
 
 const activePlayerIds = computed(() => props.teams.flatMap(team => team.players.map(player => player.id)))
 const activePlayers = computed(() => {
@@ -64,6 +67,7 @@ const winnerTeamAccent = computed(() => winnerTeam.value
   : 'var(--primary)')
 const nextWinner = computed(() => draftOrder.value[currentRound.value + 1] ?? null)
 const nextWinnerTeam = computed(() => props.teams.find(team => team.players.some(player => player.id === nextWinner.value?.id)) ?? null)
+const roundsAfterCurrent = computed(() => Math.max(0, draftOrder.value.length - currentRound.value - 1))
 const winnerTier = computed(() => currentWinner.value ? getTier(currentWinner.value.score) : null)
 const draftComplete = computed(() => totalActivePlayers.value > 0 && revealedPlayerIds.value.length >= totalActivePlayers.value)
 const currentPickNumber = computed(() => Math.min(
@@ -81,7 +85,9 @@ const reservePlayers = computed(() => {
 function stopSound() {
   sfx.stopCaseTension()
   if (celebrationTimer) clearTimeout(celebrationTimer)
+  if (autoConfirmTimer) clearTimeout(autoConfirmTimer)
   celebrationTimer = null
+  autoConfirmTimer = null
 }
 
 function updateVerdict() {
@@ -99,20 +105,21 @@ function selectingMessage() {
 function resetRun() {
   stopSound()
   const sequence = createDraftSequence(
-    props.players,
-    activePlayerIds.value,
+    props.teams,
     props.lockedIds
   )
 
   draftOrder.value = sequence.rounds
   revealedPlayerIds.value = sequence.preselectedPlayerIds
   fixedPlayerIds.value = sequence.preselectedPlayerIds
+  reelPlayers.value = getUnrevealedPlayers(activePlayers.value, sequence.preselectedPlayerIds)
   currentRound.value = 0
   reelRunId.value = props.runId * 100
   roundRevealed.value = false
   roundSettled.value = false
   draftStarted.value = false
   completed.value = false
+  currentRoundAutoConfirmed.value = false
   lastTickAt = 0
   updateVerdict()
 
@@ -120,6 +127,14 @@ function resetRun() {
     selectionStatus.value = 'All team positions are confirmed'
     completed.value = true
     void nextTick(() => emit('complete'))
+    return
+  }
+
+  if (sequence.rounds.length === 1) {
+    draftStarted.value = true
+    roundSettled.value = true
+    currentRoundAutoConfirmed.value = true
+    handleReveal(true)
     return
   }
 
@@ -149,7 +164,7 @@ function handleTick(payload: { index: number, speed: number }) {
   sfx.playCaseTick(payload.speed)
 }
 
-function handleReveal() {
+function handleReveal(automatic = false) {
   const winner = currentWinner.value
   if (!winner || roundRevealed.value) return
 
@@ -158,7 +173,9 @@ function handleReveal() {
   const teamName = winnerTeam.value?.name ?? 'their team'
   const isFinalPick = revealedPlayerIds.value.length >= totalActivePlayers.value
 
-  selectionStatus.value = `${winner.name} joins ${teamName}`
+  selectionStatus.value = automatic
+    ? `${winner.name} confirmed for ${teamName}`
+    : `${winner.name} joins ${teamName}`
   if (isFinalPick) {
     completed.value = true
     emit('complete')
@@ -172,6 +189,16 @@ function handleReveal() {
 
 function handleSequenceComplete() {
   roundSettled.value = true
+  if (roundsAfterCurrent.value !== 1 || completed.value) return
+
+  autoConfirmTimer = setTimeout(() => {
+    autoConfirmTimer = null
+    currentRound.value += 1
+    roundRevealed.value = false
+    currentRoundAutoConfirmed.value = true
+    updateVerdict()
+    handleReveal(true)
+  }, 650)
 }
 
 function startFirstRound() {
@@ -182,12 +209,14 @@ function startFirstRound() {
 }
 
 function startNextRound() {
-  if (!roundRevealed.value || !roundSettled.value || draftComplete.value) return
+  if (!roundRevealed.value || !roundSettled.value || draftComplete.value || roundsAfterCurrent.value <= 1) return
   sfx.arm()
   stopSound()
   currentRound.value += 1
   roundRevealed.value = false
   roundSettled.value = false
+  currentRoundAutoConfirmed.value = false
+  reelPlayers.value = getUnrevealedPlayers(activePlayers.value, revealedPlayerIds.value)
   lastTickAt = 0
   updateVerdict()
   selectionStatus.value = selectingMessage()
@@ -265,8 +294,8 @@ onBeforeUnmount(stopSound)
       </div>
 
       <PlayerCaseReel
-        v-if="draftStarted && currentWinner"
-        :players="activePlayers"
+        v-if="draftStarted && currentWinner && !currentRoundAutoConfirmed"
+        :players="reelPlayers"
         :winner="currentWinner"
         :run-id="reelRunId"
         :pick-number="currentPickNumber"
@@ -280,7 +309,7 @@ onBeforeUnmount(stopSound)
       />
 
       <section
-        v-else
+        v-else-if="!roundRevealed"
         class="draft-ready"
         :style="{ '--ready-accent': winnerTeamAccent }"
         aria-labelledby="draft-ready-title"
@@ -330,7 +359,7 @@ onBeforeUnmount(stopSound)
         </div>
 
         <Button
-          v-if="!draftComplete"
+          v-if="!draftComplete && roundsAfterCurrent > 1"
           class="selection-action min-h-11 shrink-0 px-5 sm:min-h-9"
           :disabled="!roundSettled"
           @click="startNextRound"
@@ -338,7 +367,7 @@ onBeforeUnmount(stopSound)
           <PlayIcon data-icon="inline-start" />
           Spin for {{ nextWinnerTeam?.name ?? 'next team' }}
         </Button>
-        <DialogClose v-else as-child>
+        <DialogClose v-else-if="draftComplete" as-child>
           <Button class="selection-action min-h-11 shrink-0 px-5 sm:min-h-9">Finish selection</Button>
         </DialogClose>
       </section>

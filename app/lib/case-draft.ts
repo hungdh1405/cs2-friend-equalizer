@@ -68,26 +68,40 @@ export function shufflePlayers<T>(items: T[], random: RandomSource = browserRand
   return copy
 }
 
+export function getUnrevealedPlayers(players: Player[], revealedPlayerIds: string[]): Player[] {
+  const revealedIds = new Set(revealedPlayerIds)
+  return players.filter(player => !revealedIds.has(player.id))
+}
+
 /**
  * Seals the full multi-round draft before the first reel starts. Manually locked players are
- * already public knowledge, so they begin on the board; every other active player appears in
- * exactly one randomized round. Reserves never leak into the active-team draft order.
+ * already public knowledge, so they begin on the board. Each team's remaining player queue is
+ * randomized, then the queues are consumed in round-robin order. Reserves never leak into the
+ * active-team selection order.
  */
 export function createDraftSequence(
-  players: Player[],
-  activePlayerIds: string[],
+  teams: DraftTeam[],
   lockedPlayerIds: string[],
   random: RandomSource = browserRandom
 ): DraftSequence {
-  const activeIds = new Set(activePlayerIds)
+  const orderedTeams = [...teams].sort((left, right) => left.index - right.index)
+  const activeIds = new Set(orderedTeams.flatMap(team => team.players.map(player => player.id)))
   const lockedIds = new Set(lockedPlayerIds)
   const preselectedPlayerIds = lockedPlayerIds.filter((id, index) => (
     activeIds.has(id) && lockedPlayerIds.indexOf(id) === index
   ))
-  const rounds = shufflePlayers(
-    players.filter(player => activeIds.has(player.id) && !lockedIds.has(player.id)),
+  const teamQueues = orderedTeams.map(team => shufflePlayers(
+    team.players.filter(player => !lockedIds.has(player.id)),
     random
-  )
+  ))
+  const rounds: Player[] = []
+
+  while (teamQueues.some(queue => queue.length)) {
+    for (const queue of teamQueues) {
+      const nextPlayer = queue.shift()
+      if (nextPlayer) rounds.push(nextPlayer)
+    }
+  }
 
   return { preselectedPlayerIds, rounds }
 }
